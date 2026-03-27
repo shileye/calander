@@ -42,9 +42,9 @@
         <header class="px-8 py-4 border-b theme-border flex justify-between items-center theme-bg-panel transition-colors duration-300">
             <div class="flex items-center gap-4">
                 <button id="btn-prev" class="p-1 hover:bg-gray-500/10 rounded transition-colors">&lt;</button>
-                <span id="date-label" class="font-black text-xl w-32 text-center tabular-nums">2026 3月</span>
+                <span id="date-label" class="font-black text-lg w-48 text-center tabular-nums tracking-tight">2026 3月</span>
                 <button id="btn-next" class="p-1 hover:bg-gray-500/10 rounded transition-colors">&gt;</button>
-                <button id="btn-today" class="ml-2 text-xs border theme-border px-3 py-1.5 rounded-md font-bold hover:bg-gray-500/10 transition-colors">今天</button>
+                <button id="btn-today" class="ml-2 text-xs border theme-border px-3 py-1.5 rounded-md font-bold hover:bg-gray-500/10 transition-colors">回到今天</button>
             </div>
             
             <!-- 主题切换器 -->
@@ -59,21 +59,21 @@
         <div class="flex-1 relative overflow-hidden">
             <!-- 1. 月视图 -->
             <div id="view-month" class="view-section h-full flex flex-col">
-                <div class="grid grid-cols-7 border-b theme-border text-center text-xs font-bold py-2 opacity-60 uppercase">
-                    <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+                <div class="grid grid-cols-7 border-b theme-border text-center text-xs font-bold py-2 opacity-60 uppercase tracking-wider">
+                    <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div class="text-blue-500">Sat</div><div class="text-blue-500">Sun</div>
                 </div>
                 <div id="month-grid" class="flex-1 grid grid-cols-7 auto-rows-fr overflow-y-auto theme-bg-grid gap-px"></div>
             </div>
 
-            <!-- 2. 周视图 (预留框架) -->
-            <div id="view-week" class="view-section h-full hidden flex-col p-8 overflow-y-auto">
-                <h2 class="text-2xl font-black mb-6">本周排期</h2>
-                <div id="week-grid" class="flex flex-col gap-4"></div>
+            <!-- 2. 周视图 (已修复逻辑) -->
+            <div id="view-week" class="view-section h-full hidden flex-col p-8 overflow-y-auto bg-black/5">
+                <h2 class="text-2xl font-black mb-6">本周详细排期</h2>
+                <div id="week-grid" class="flex flex-col gap-3 max-w-5xl mx-auto w-full"></div>
             </div>
 
             <!-- 3. 年视图 (热力图) -->
             <div id="view-year" class="view-section h-full hidden flex-col p-8 overflow-y-auto items-center">
-                <h2 class="text-2xl font-black mb-2 self-start w-full max-w-4xl mx-auto">2026 训练热力图</h2>
+                <h2 class="text-2xl font-black mb-2 self-start w-full max-w-4xl mx-auto">训练热力图概览</h2>
                 <div id="year-grid" class="flex flex-wrap gap-1.5 max-w-4xl mx-auto mt-8 bg-black/5 p-6 rounded-xl border theme-border"></div>
             </div>
         </div>
@@ -83,26 +83,42 @@
     <div id="drawer-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
     <div id="right-drawer" class="fixed top-0 right-0 h-full w-96 theme-bg-panel shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col border-l theme-border">
         <div class="p-6 border-b theme-border flex justify-between items-center">
-            <h3 id="drawer-date" class="text-xl font-black tabular-nums">3月29日</h3>
+            <h3 id="drawer-date" class="text-xl font-black tabular-nums">--</h3>
             <button id="btn-close-drawer" class="text-2xl opacity-50 hover:opacity-100">&times;</button>
         </div>
         <div id="drawer-list" class="flex-1 overflow-y-auto p-6 space-y-3">
             <!-- JS 动态注入单日任务 -->
         </div>
-        <div class="p-6 border-t theme-border bg-black/5">
-            <input type="text" id="drawer-input" placeholder="输入赛事并回车 (例: 19:00 牛客)" class="w-full bg-transparent border theme-border rounded-lg px-4 py-3 outline-none focus:border-blue-500 font-bold transition-colors">
+        
+        <!-- 新增：明确的选项按钮区 -->
+        <div class="p-5 border-t theme-border bg-black/5 flex flex-col gap-3">
+            <div class="flex gap-2 text-xs font-bold" id="drawer-type-btns">
+                <button class="type-btn flex-1 py-1.5 rounded border-2 border-blue-500 text-blue-600 bg-blue-500/10 transition-colors" data-type="match">🏆线上</button>
+                <button class="type-btn flex-1 py-1.5 rounded border-2 border-transparent opacity-50 hover:opacity-100 transition-colors" data-type="offline">🚗线下</button>
+                <button class="type-btn flex-1 py-1.5 rounded border-2 border-transparent opacity-50 hover:opacity-100 transition-colors" data-type="upsolve">🔥补题</button>
+                <button class="type-btn flex-1 py-1.5 rounded border-2 border-transparent opacity-50 hover:opacity-100 transition-colors" data-type="practice">💻刷题</button>
+            </div>
+            <input type="text" id="drawer-input" placeholder="输入名称与时间 (例: 19:00 牛客)" class="w-full bg-transparent border theme-border rounded-lg px-4 py-2.5 outline-none focus:border-blue-500 font-bold transition-colors">
         </div>
     </div>
 
     <!-- 全局快捷录入 Modal (Ctrl+K) -->
     <div id="global-modal" class="fixed inset-0 bg-black/40 backdrop-blur-md z-50 hidden opacity-0 transition-opacity duration-200 flex items-start justify-center pt-32">
         <div class="theme-bg-panel w-full max-w-2xl rounded-2xl shadow-2xl border theme-border overflow-hidden transform scale-95 transition-transform duration-200" id="global-modal-content">
-            <div class="p-6">
-                <input type="text" id="global-input" placeholder="输入格式: 3.29 19~21 牛客周赛" class="w-full text-xl bg-transparent outline-none font-black placeholder-gray-400">
+            <div class="p-6 pb-2">
+                <input type="text" id="global-input" placeholder="格式: 3.29 19~21 牛客周赛" class="w-full text-xl bg-transparent outline-none font-black placeholder-gray-400">
             </div>
-            <div class="px-6 py-4 border-t theme-border bg-black/5 flex justify-end gap-3 text-sm font-bold">
-                <button id="btn-modal-cancel" class="px-4 py-2 opacity-60 hover:opacity-100 transition-opacity">取消 (Esc)</button>
-                <button id="btn-modal-save" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">保存 (Enter)</button>
+            <div class="px-6 py-4 border-t theme-border bg-black/5 flex justify-between items-center text-sm font-bold mt-4">
+                <div class="flex gap-2 text-xs" id="modal-type-btns">
+                    <button class="type-btn px-3 py-1.5 rounded border-2 border-blue-500 text-blue-600 bg-blue-500/10 transition-colors" data-type="match">🏆线上赛</button>
+                    <button class="type-btn px-3 py-1.5 rounded border-2 border-transparent opacity-50 hover:opacity-100 transition-colors" data-type="offline">🚗线下赛</button>
+                    <button class="type-btn px-3 py-1.5 rounded border-2 border-transparent opacity-50 hover:opacity-100 transition-colors" data-type="upsolve">🔥补题</button>
+                    <button class="type-btn px-3 py-1.5 rounded border-2 border-transparent opacity-50 hover:opacity-100 transition-colors" data-type="practice">💻日常刷题</button>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btn-modal-cancel" class="px-4 py-2 opacity-60 hover:opacity-100 transition-opacity">取消 (Esc)</button>
+                    <button id="btn-modal-save" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">保存 (Enter)</button>
+                </div>
             </div>
         </div>
     </div>

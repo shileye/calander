@@ -1,29 +1,21 @@
 /**
- * ACM Calendar Pro - 核心逻辑引擎 (支持 LocalStorage 本地存储 & 智能排序)
+ * ACM Calendar Pro - 逻辑引擎 (完善 UI 选择与周视图翻页修复)
  */
 
-// --- 1. 数据与状态管理 (加入 LocalStorage 防丢失) ---
-const defaultEvents = [
-    { id: 1, date: '2026-03-29', title: '牛客周赛 #12', start: '19:00', end: '21:00', type: 'match' },
-    { id: 2, date: '2026-03-29', title: '补题: 状压DP', start: '', end: '', type: 'upsolve' },
-    { id: 3, date: '2026-04-05', title: '蓝桥杯省赛线下', start: '09:00', end: '13:00', type: 'offline' },
-    { id: 4, date: '2026-03-28', title: '刷题: CF Div2', start: '', end: '', type: 'practice' }
-];
+// --- 1. 数据与状态管理 ---
+let events = JSON.parse(localStorage.getItem('acm_pro_events')) || [];
 
-// 核心修复：从浏览器的 localStorage 读取数据，刷新不再丢失
-let events = JSON.parse(localStorage.getItem('acm_pro_events')) || defaultEvents;
-
-// 每次增删改后，调用此函数保存数据到本地
 function saveEvents() {
     localStorage.setItem('acm_pro_events', JSON.stringify(events));
 }
 
-let curDate = new Date(2026, 2, 1);
+let curDate = new Date(); // 当前操作的日期锚点
 const todayStr = new Date().toISOString().split('T')[0];
 let currentView = 'month';
 let selectedDrawerDate = null;
+let currentSelectedType = 'match'; // 当前选中的任务类型，默认线上赛
 
-// --- 2. DOM 元素获取 ---
+// --- 2. 元素获取 ---
 const monthGrid = document.getElementById('month-grid');
 const weekGrid = document.getElementById('week-grid');
 const yearGrid = document.getElementById('year-grid');
@@ -38,31 +30,29 @@ const drawerDateLabel = document.getElementById('drawer-date');
 const globalModal = document.getElementById('global-modal');
 const globalInput = document.getElementById('global-input');
 
-// --- 3. 智能分类与排序规则 ---
-// 优先级权重：补题 (1) > 线下赛 (2) > 线上赛 (3) > 刷题 (4)
+// --- 3. 分类与排序 ---
 function getWeight(type) {
     if (type === 'upsolve') return 1;
     if (type === 'offline') return 2;
     if (type === 'match') return 3;
-    return 4; // practice
+    return 4; 
 }
 
 function sortDayEvents(dayEvents) {
     return dayEvents.sort((a, b) => {
         const wA = getWeight(a.type);
         const wB = getWeight(b.type);
-        if (wA !== wB) return wA - wB; // 权重不同，数字小的(高优)排前面
-        return (a.start || '24:00').localeCompare(b.start || '24:00'); // 权重相同，按时间早晚排
+        if (wA !== wB) return wA - wB; 
+        return (a.start || '24:00').localeCompare(b.start || '24:00'); 
     });
 }
 
-// 分类颜色与样式引擎
 function getStyle(type) {
     switch(type) {
-        case 'upsolve': return 'border-purple-500 bg-purple-500/10 text-purple-700'; // 补题：高亮紫
-        case 'offline': return 'border-red-500 bg-red-500/10 text-red-700';       // 线下赛：警戒红
-        case 'match': return 'border-blue-500 bg-blue-500/10 text-blue-700';      // 线上赛：经典蓝
-        case 'practice': return 'border-green-500 bg-green-500/10 text-green-700';// 刷题：护眼绿
+        case 'upsolve': return 'border-purple-500 bg-purple-500/10 text-purple-700'; 
+        case 'offline': return 'border-red-500 bg-red-500/10 text-red-700';       
+        case 'match': return 'border-blue-500 bg-blue-500/10 text-blue-700';      
+        case 'practice': return 'border-green-500 bg-green-500/10 text-green-700';
         default: return 'border-gray-400 bg-gray-500/10 text-gray-700';
     }
 }
@@ -77,7 +67,42 @@ function getIcon(type) {
     }
 }
 
-// --- 4. 主题与导航切换 ---
+function getTypeName(type) {
+    switch(type) {
+        case 'upsolve': return '补题'; 
+        case 'offline': return '线下赛';
+        case 'match': return '线上赛';
+        case 'practice': return '刷题';
+        default: return '其他';
+    }
+}
+
+// --- 4. UI 交互：类型选择器与导航 ---
+function bindTypeSelectors(containerId) {
+    const btns = document.getElementById(containerId).querySelectorAll('.type-btn');
+    btns.forEach(btn => {
+        btn.onclick = () => {
+            currentSelectedType = btn.dataset.type;
+            // 重置所有按钮
+            btns.forEach(b => {
+                b.className = 'type-btn flex-1 py-1.5 rounded border-2 border-transparent opacity-50 hover:opacity-100 transition-colors';
+                if(containerId === 'modal-type-btns') b.className = 'type-btn px-3 py-1.5 rounded border-2 border-transparent opacity-50 hover:opacity-100 transition-colors';
+            });
+            // 激活当前按钮 (根据类型赋予对应颜色)
+            let colorCls = '';
+            if(currentSelectedType === 'upsolve') colorCls = 'border-purple-500 bg-purple-500/10 text-purple-600';
+            else if(currentSelectedType === 'offline') colorCls = 'border-red-500 bg-red-500/10 text-red-600';
+            else if(currentSelectedType === 'match') colorCls = 'border-blue-500 bg-blue-500/10 text-blue-600';
+            else colorCls = 'border-green-500 bg-green-500/10 text-green-600';
+            
+            btn.className = `type-btn flex-1 py-1.5 rounded border-2 transition-colors ${colorCls}`;
+            if(containerId === 'modal-type-btns') btn.className = `type-btn px-3 py-1.5 rounded border-2 transition-colors ${colorCls}`;
+        };
+    });
+}
+bindTypeSelectors('drawer-type-btns');
+bindTypeSelectors('modal-type-btns');
+
 document.querySelectorAll('.theme-btn').forEach(btn => {
     btn.onclick = (e) => {
         const theme = e.currentTarget.dataset.set;
@@ -93,9 +118,7 @@ document.querySelectorAll('.theme-btn').forEach(btn => {
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.onclick = (e) => {
-        const view = e.currentTarget.dataset.view;
-        currentView = view;
-        
+        currentView = e.currentTarget.dataset.view;
         document.querySelectorAll('.nav-btn').forEach(b => {
             b.classList.remove('active', 'theme-bg-panel', 'opacity-100');
             b.classList.add('opacity-70');
@@ -104,8 +127,8 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
         e.currentTarget.classList.remove('opacity-70');
 
         document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
-        document.getElementById(`view-${view}`).classList.remove('hidden');
-        document.getElementById(`view-${view}`).classList.add('flex');
+        document.getElementById(`view-${currentView}`).classList.remove('hidden');
+        document.getElementById(`view-${currentView}`).classList.add('flex');
         
         renderViews();
     };
@@ -132,7 +155,6 @@ function renderMonth() {
     for (let i = 1; i <= days; i++) {
         const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
         
-        // 核心：获取当日事件并调用我们写好的智能排序函数
         let dayEvents = events.filter(e => e.date === dStr);
         dayEvents = sortDayEvents(dayEvents);
         
@@ -154,24 +176,30 @@ function renderMonth() {
             html += `<div class="text-[10px] px-1.5 py-1 rounded border-l-2 truncate font-bold ${styleCls}">${e.start ? e.start+' ' : ''}${e.title}</div>`;
         });
 
-        if (dayEvents.length > 3) {
-            html += `<div class="text-[10px] font-bold opacity-50 mt-1">+${dayEvents.length - 3} 更多</div>`;
-        }
+        if (dayEvents.length > 3) html += `<div class="text-[10px] font-bold opacity-50 mt-1">+${dayEvents.length - 3} 更多</div>`;
 
         cell.innerHTML = html + `</div>`;
         monthGrid.appendChild(cell);
     }
 }
 
+// 【修复周视图】彻底重构：精准计算当前周的周一到周日
 function renderWeek() {
     weekGrid.innerHTML = '';
-    const year = curDate.getFullYear(), month = curDate.getMonth();
-    dateLabel.textContent = `${year}年 ${month + 1}月 (周视图)`;
     
+    // 找出 curDate 所在周的周一
     let d = new Date(curDate);
     let day = d.getDay();
     let diff = d.getDate() - day + (day === 0 ? -6 : 1);
     let monday = new Date(d.setDate(diff));
+    
+    // 找出所在周的周日 (用于展示标题)
+    let sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    
+    dateLabel.textContent = `${monday.getMonth()+1}月${monday.getDate()}日 - ${sunday.getMonth()+1}月${sunday.getDate()}日`;
+
+    const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
     for(let i=0; i<7; i++) {
         let currentDay = new Date(monday);
@@ -181,14 +209,27 @@ function renderWeek() {
         let dayEvents = events.filter(e => e.date === dStr);
         dayEvents = sortDayEvents(dayEvents);
         
-        let html = `<div class="theme-bg-panel p-4 rounded-xl border theme-border flex gap-6 cursor-pointer hover-theme-bg" onclick="openDrawer('${dStr}')">
-            <div class="w-16 font-black text-xl opacity-60">${currentDay.getDate()}日</div>
-            <div class="flex-1 flex flex-col gap-2">`;
+        const isToday = dStr === todayStr;
         
-        if(dayEvents.length === 0) html += `<span class="opacity-30 text-sm font-bold">无排期</span>`;
-        dayEvents.forEach(e => {
-            html += `<div class="text-sm font-bold bg-black/5 px-3 py-1.5 rounded-lg w-max border-l-4 ${getStyle(e.type).split(' ')[0]}">${e.start ? e.start+' - ' : ''}${e.title}</div>`;
-        });
+        let html = `<div class="theme-bg-panel p-5 rounded-xl border theme-border flex gap-6 cursor-pointer hover-theme-bg transition-colors" onclick="openDrawer('${dStr}')">
+            <div class="w-20 flex flex-col items-center justify-center border-r theme-border pr-6">
+                <span class="text-sm font-bold opacity-50">${weekDays[i]}</span>
+                <span class="text-2xl font-black ${isToday ? 'text-blue-500' : 'opacity-80'} mt-1">${currentDay.getDate()}</span>
+            </div>
+            <div class="flex-1 flex flex-col justify-center gap-2">`;
+        
+        if(dayEvents.length === 0) {
+            html += `<span class="opacity-30 text-sm font-bold">无排期任务</span>`;
+        } else {
+            dayEvents.forEach(e => {
+                const styleCls = getStyle(e.type);
+                html += `
+                    <div class="text-sm font-bold bg-black/5 px-3 py-1.5 rounded-lg w-max border-l-4 ${styleCls.split(' ')[0]} flex items-center gap-2">
+                        <span>${getIcon(e.type)}</span>
+                        <span>${e.start ? e.start+' - ' : ''}${e.title}</span>
+                    </div>`;
+            });
+        }
         
         html += `</div></div>`;
         weekGrid.innerHTML += html;
@@ -197,8 +238,8 @@ function renderWeek() {
 
 function renderYear() {
     yearGrid.innerHTML = '';
-    dateLabel.textContent = `${curDate.getFullYear()} 年度概览`;
     const year = curDate.getFullYear();
+    dateLabel.textContent = `${year} 年度热力图`;
     const startDate = new Date(year, 0, 1);
     const endDate = new Date(year, 11, 31);
     
@@ -218,21 +259,21 @@ function renderYear() {
         else cell.classList.add('bg-green-700');
         
         cell.title = `${dateStr}: ${count} 项`;
-        cell.onclick = () => openDrawer(dateStr);
+        cell.onclick = () => { curDate = new Date(d); currentView = 'month'; document.querySelector('[data-view="month"]').click(); openDrawer(dateStr); };
         yearGrid.appendChild(cell);
     }
 }
 
-// --- 6. 右侧抽屉 (单日 CRUD) ---
+// --- 6. 右侧抽屉 ---
 window.openDrawer = (dateStr) => {
     selectedDrawerDate = dateStr;
     const parts = dateStr.split('-');
     drawerDateLabel.textContent = `${parseInt(parts[1])}月${parseInt(parts[2])}日`;
-    
     renderDrawerList();
-    
     document.body.classList.add('drawer-open');
     drawerInput.value = '';
+    // 默认重置为 match
+    document.getElementById('drawer-type-btns').firstElementChild.click();
     setTimeout(() => drawerInput.focus(), 300);
 };
 
@@ -242,25 +283,21 @@ function renderDrawerList() {
     dayEvents = sortDayEvents(dayEvents);
     
     if(dayEvents.length === 0) {
-        drawerList.innerHTML = `<div class="opacity-40 text-sm font-bold text-center mt-10">今日暂无排期</div>`;
+        drawerList.innerHTML = `<div class="opacity-40 text-sm font-bold text-center mt-10">今日无任务，自由安排</div>`;
         return;
     }
 
     dayEvents.forEach(e => {
-        const icon = getIcon(e.type);
         const styleCls = getStyle(e.type);
-        // 抽屉内部生成对应的 Tag 名称
-        const tagText = e.type === 'upsolve' ? '补题' : (e.type === 'offline' ? '线下赛' : (e.type === 'practice' ? '日常刷题' : '线上赛'));
-        
         const item = document.createElement('div');
         item.className = `theme-bg-panel border theme-border p-3 rounded-lg flex justify-between items-center group shadow-sm border-l-4 ${styleCls.split(' ')[0]}`;
         item.innerHTML = `
             <div class="flex items-center gap-3 overflow-hidden">
-                <span class="text-lg">${icon}</span>
+                <span class="text-lg">${getIcon(e.type)}</span>
                 <div class="overflow-hidden">
                     <p class="font-bold text-sm truncate">${e.title}</p>
                     <p class="text-[10px] font-bold opacity-60 mt-0.5 px-1.5 py-0.5 bg-black/5 rounded inline-block">
-                        ${tagText} | ${e.start ? e.start : '全天'}
+                        ${getTypeName(e.type)} | ${e.start ? e.start : '全天'}
                     </p>
                 </div>
             </div>
@@ -274,7 +311,7 @@ const closeDrawer = () => document.body.classList.remove('drawer-open');
 
 window.deleteEvent = (id) => {
     events = events.filter(e => e.id !== id);
-    saveEvents(); // 核心：删除也要同步到本地缓存
+    saveEvents(); 
     renderDrawerList(); 
     renderViews();      
 };
@@ -288,17 +325,24 @@ drawerInput.onkeydown = (e) => {
     }
 };
 
-// --- 7. 全局 Modal (Ctrl+K) ---
-const openModal = () => { globalModal.classList.add('modal-open'); globalInput.value = ''; globalInput.focus(); };
+// --- 7. Modal 逻辑 ---
+const openModal = () => { 
+    globalModal.classList.add('modal-open'); 
+    globalInput.value = ''; 
+    document.getElementById('modal-type-btns').firstElementChild.click();
+    globalInput.focus(); 
+};
 const closeModal = () => globalModal.classList.remove('modal-open');
 
 document.getElementById('btn-global-add').onclick = openModal;
 document.getElementById('btn-modal-cancel').onclick = closeModal;
 
-// --- 8. NLP 解析与智能分类核心函数 ---
+// --- 8. 解析与保存 (直接使用 UI 选择的分类) ---
 function parseAndSave(defaultDateStr, text) {
     let date = defaultDateStr;
-    let start = '', end = '', title = text, type = 'match'; 
+    let start = '', end = '', title = text;
+    // 直接读取当前的 UI 选择按钮
+    let type = currentSelectedType; 
     
     const dateMatch = text.match(/(\d{1,2})[\.\-](\d{1,2})/);
     if(dateMatch) {
@@ -313,20 +357,8 @@ function parseAndSave(defaultDateStr, text) {
         title = title.replace(timeMatch[0], '');
     }
 
-    // 智能文本分类引擎：提取输入里的关键词
-    if (title.includes('补题')) {
-        type = 'upsolve';
-    } else if (title.includes('线下')) {
-        type = 'offline';
-        title = title.replace('线下', ''); 
-    } else if (title.includes('刷题') || title.includes('日常')) {
-        type = 'practice';
-    } else {
-        type = 'match'; // 都没有，默认线上赛
-    }
-    
     events.push({ id: Date.now(), date, start, end, title: title.trim(), type });
-    saveEvents(); // 核心：每次新增必定存入本地缓存
+    saveEvents(); 
 }
 
 document.getElementById('btn-modal-save').onclick = () => {
@@ -339,9 +371,20 @@ document.getElementById('btn-modal-save').onclick = () => {
 
 globalInput.onkeydown = (e) => { if(e.key === 'Enter') document.getElementById('btn-modal-save').click(); };
 
-// --- 9. 基础事件绑定 ---
-document.getElementById('btn-prev').onclick = () => { curDate.setMonth(curDate.getMonth()-1); renderViews(); };
-document.getElementById('btn-next').onclick = () => { curDate.setMonth(curDate.getMonth()+1); renderViews(); };
+// --- 9. 全局翻页与事件绑定 ---
+document.getElementById('btn-prev').onclick = () => { 
+    // 智能翻页逻辑
+    if(currentView === 'month') curDate.setMonth(curDate.getMonth() - 1); 
+    else if(currentView === 'week') curDate.setDate(curDate.getDate() - 7);
+    else if(currentView === 'year') curDate.setFullYear(curDate.getFullYear() - 1);
+    renderViews(); 
+};
+document.getElementById('btn-next').onclick = () => { 
+    if(currentView === 'month') curDate.setMonth(curDate.getMonth() + 1); 
+    else if(currentView === 'week') curDate.setDate(curDate.getDate() + 7);
+    else if(currentView === 'year') curDate.setFullYear(curDate.getFullYear() + 1);
+    renderViews(); 
+};
 document.getElementById('btn-today').onclick = () => { curDate = new Date(); renderViews(); };
 
 document.getElementById('btn-close-drawer').onclick = closeDrawer;
@@ -352,5 +395,5 @@ window.onkeydown = (e) => {
     if(e.key === 'Escape') { closeModal(); closeDrawer(); }
 };
 
-// --- 初始化 ---
+// 初始化
 renderViews();
