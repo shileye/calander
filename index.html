@@ -6,10 +6,14 @@
     <title>ACMer Pro Calendar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* 针对移动端底部导航防遮挡 */
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
 </head>
 <body class="theme-bg-base theme-text-main font-sans h-screen flex flex-col md:flex-row overflow-hidden transition-colors duration-300">
     
-    <!-- 左侧导航 (PC端显示，移动端隐藏) -->
+    <!-- 左侧导航 (PC端) -->
     <aside class="hidden md:flex w-64 theme-bg-panel border-r theme-border flex-col z-10 transition-colors duration-300">
         <div class="p-6 pb-4">
             <h1 class="text-xl font-black tracking-tight flex items-center gap-2">
@@ -31,7 +35,7 @@
                 </label>
             </div>
             <button id="btn-export-ics" class="w-full bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 text-xs font-bold py-2 rounded-lg transition-colors border border-blue-500/20">
-                📲 导出至手机日历 (.ics)
+                📲 导出至系统日历
             </button>
         </div>
 
@@ -45,7 +49,6 @@
 
     <!-- 右侧主体 -->
     <main class="flex-1 relative flex flex-col h-full overflow-hidden pb-16 md:pb-0">
-        
         <header class="px-4 md:px-8 py-3 md:py-4 border-b theme-border flex justify-between items-center theme-bg-panel transition-colors duration-300 z-20 shadow-sm md:shadow-none">
             <div class="flex items-center gap-1 md:gap-4">
                 <button id="btn-prev" class="p-1.5 md:p-1 hover:bg-gray-500/10 rounded transition-colors">&lt;</button>
@@ -55,9 +58,8 @@
             </div>
             
             <div class="flex items-center gap-2 md:gap-4">
-                <!-- 杀手锏：API 抓取按钮 -->
                 <button id="btn-fetch-api" class="text-xs md:text-sm font-bold bg-purple-500/10 text-purple-600 border border-purple-500/30 px-2.5 py-1.5 rounded-lg hover:bg-purple-500/20 transition-colors flex items-center gap-1 shadow-sm">
-                    <span>🌐</span> <span class="hidden md:inline">同步赛事</span>
+                    <span>🌐</span> <span class="hidden md:inline">抓取近期比赛</span>
                 </button>
                 
                 <div class="flex items-center gap-1 bg-gray-500/5 p-1 rounded-lg border theme-border hidden md:flex">
@@ -86,7 +88,7 @@
         </div>
     </main>
 
-    <!-- 底部导航 (移动端专属) -->
+    <!-- 底部导航 (移动端) -->
     <nav class="md:hidden fixed bottom-0 w-full theme-bg-panel border-t theme-border flex justify-around items-center p-2 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] env(safe-area-inset-bottom)">
         <button class="nav-btn active flex flex-col items-center p-2 opacity-100" data-view="month"><span class="text-lg mb-1">📅</span><span class="text-[10px] font-bold">月历</span></button>
         <button class="nav-btn flex flex-col items-center p-2 opacity-50" data-view="week"><span class="text-lg mb-1">⚡️</span><span class="text-[10px] font-bold">周排期</span></button>
@@ -94,7 +96,6 @@
             <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl shadow-lg shadow-blue-500/40 border-4 border-white">+</div>
         </button>
         <button class="nav-btn flex flex-col items-center p-2 opacity-50" data-view="year"><span class="text-lg mb-1">🟩</span><span class="text-[10px] font-bold">热力图</span></button>
-        <!-- 移动端暗黑模式快捷键 -->
         <button id="mobile-theme-toggle" class="flex flex-col items-center p-2 opacity-50"><span class="text-lg mb-1">🌙</span><span class="text-[10px] font-bold">主题</span></button>
     </nav>
 
@@ -138,10 +139,23 @@
         </div>
     </div>
 
-    <style>
-        /* 针对移动端底部导航防遮挡 */
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-    </style>
+    <!-- 新增：API 抓取结果筛选 Modal -->
+    <div id="api-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 hidden opacity-0 transition-opacity duration-200 flex items-center justify-center p-4">
+        <div class="theme-bg-panel w-full max-w-2xl rounded-2xl shadow-2xl border theme-border overflow-hidden transform scale-95 transition-transform duration-200 flex flex-col max-h-[85vh]" id="api-modal-content">
+            <div class="p-4 md:p-6 border-b theme-border bg-black/5 flex justify-between items-center">
+                <h3 class="font-black text-lg flex items-center gap-2"><span>🌐</span> 未来一周赛事 (CF/At/牛客)</h3>
+                <button id="btn-close-api" class="text-2xl opacity-50 hover:opacity-100">&times;</button>
+            </div>
+            <div id="api-list" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-3">
+                <!-- 动态注入待选赛事 -->
+            </div>
+            <div class="p-4 md:p-6 border-t theme-border bg-black/5 flex justify-end gap-3">
+                <button id="btn-api-cancel" class="px-5 py-2.5 opacity-60 bg-gray-500/10 hover:bg-gray-500/20 rounded-lg font-bold transition-colors text-sm">取消</button>
+                <button id="btn-api-confirm" class="px-5 py-2.5 bg-purple-600 text-white rounded-lg shadow-md font-bold hover:bg-purple-700 transition-colors text-sm">导入选中的赛事</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>

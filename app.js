@@ -1,5 +1,5 @@
 /**
- * ACM Calendar Pro - 终极逻辑引擎 (含 API 同步 & 响应式)
+ * ACM Calendar Pro - 终极逻辑引擎 (精细化 API 筛选 & 响应式)
  */
 
 let events = JSON.parse(localStorage.getItem('acm_pro_events')) || [];
@@ -13,6 +13,7 @@ const todayStr = new Date().toISOString().split('T')[0];
 let currentView = 'month';
 let selectedDrawerDate = null;
 let currentSelectedType = 'match'; 
+let pendingApiContests = []; // 暂存抓取到的待确认赛事
 
 // --- DOM 元素获取 ---
 const monthGrid = document.getElementById('month-grid');
@@ -26,6 +27,8 @@ const drawerInput = document.getElementById('drawer-input');
 const drawerDateLabel = document.getElementById('drawer-date');
 const globalModal = document.getElementById('global-modal');
 const globalInput = document.getElementById('global-input');
+const apiModal = document.getElementById('api-modal');
+const apiList = document.getElementById('api-list');
 
 // --- 分类与排序 ---
 function getWeight(type) {
@@ -93,14 +96,13 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
         document.querySelectorAll('.nav-btn').forEach(b => {
             b.classList.remove('active', 'theme-bg-panel', 'opacity-100');
             b.classList.add('opacity-70');
-            if(b.querySelector('span:nth-child(2)')) b.classList.add('opacity-50'); // Mobile nav tweak
+            if(b.querySelector('span:nth-child(2)')) b.classList.add('opacity-50'); 
         });
         
-        // 激活对应的 PC 和 Mobile nav btn
         document.querySelectorAll(`.nav-btn[data-view="${currentView}"]`).forEach(b => {
             b.classList.add('active', 'opacity-100');
             b.classList.remove('opacity-70', 'opacity-50');
-            if(b.classList.contains('w-full')) b.classList.add('theme-bg-panel'); // PC side nav specific
+            if(b.classList.contains('w-full')) b.classList.add('theme-bg-panel'); 
         });
 
         document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
@@ -123,7 +125,6 @@ const setTheme = (theme) => {
 
 document.querySelectorAll('.theme-btn').forEach(btn => btn.onclick = (e) => setTheme(e.currentTarget.dataset.set));
 
-// 移动端专属主题切换按钮
 let mobileThemeIdx = 0;
 const themes = ['light', 'dark', 'nature'];
 document.getElementById('mobile-theme-toggle').onclick = () => {
@@ -239,7 +240,7 @@ function renderYear() {
     }
 }
 
-// --- 抽屉管理 ---
+// --- 抽屉与常规 Modal 逻辑 ---
 window.openDrawer = (dateStr) => {
     selectedDrawerDate = dateStr;
     const parts = dateStr.split('-');
@@ -287,7 +288,6 @@ drawerInput.onkeydown = (e) => {
     }
 };
 
-// --- Modal 录入 ---
 const openModal = () => { globalModal.classList.add('modal-open'); globalInput.value = ''; globalInput.focus(); };
 const closeModal = () => globalModal.classList.remove('modal-open');
 document.querySelectorAll('.btn-global-add').forEach(btn => btn.onclick = openModal);
@@ -314,7 +314,6 @@ document.getElementById('btn-modal-save').onclick = () => {
 };
 globalInput.onkeydown = (e) => { if(e.key === 'Enter') document.getElementById('btn-modal-save').click(); };
 
-// --- 基础按键绑 ---
 document.getElementById('btn-prev').onclick = () => { 
     if(currentView === 'month') curDate.setMonth(curDate.getMonth() - 1); 
     else if(currentView === 'week') curDate.setDate(curDate.getDate() - 7);
@@ -333,7 +332,7 @@ drawerOverlay.onclick = closeDrawer;
 
 window.onkeydown = (e) => { 
     if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openModal(); }
-    if(e.key === 'Escape') { closeModal(); closeDrawer(); }
+    if(e.key === 'Escape') { closeModal(); closeDrawer(); closeApiModal(); }
 };
 
 // --- 数据同步与备份 ---
@@ -375,7 +374,14 @@ document.getElementById('btn-export-ics').onclick = () => {
     a.download = "acm_schedule.ics"; a.click();
 };
 
-// --- 🔪 终极武器：赛事 API 一键抓取 ---
+// --- 🔪 终极武器：智能 API 抓取与用户筛选 Modal ---
+const closeApiModal = () => {
+    apiModal.classList.remove('modal-open');
+    document.getElementById('api-modal-content').classList.add('scale-95');
+}
+document.getElementById('btn-close-api').onclick = closeApiModal;
+document.getElementById('btn-api-cancel').onclick = closeApiModal;
+
 document.getElementById('btn-fetch-api').onclick = async () => {
     const btn = document.getElementById('btn-fetch-api');
     const originalText = btn.innerHTML;
@@ -383,57 +389,91 @@ document.getElementById('btn-fetch-api').onclick = async () => {
     btn.disabled = true;
 
     try {
-        // 请求全网综合赛事开源 API
         const res = await fetch('https://kontests.net/api/v1/all');
+        if (!res.ok) throw new Error('Network response was not ok');
         const data = await res.json();
-        let addedCount = 0;
+        
+        pendingApiContests = [];
+        const now = new Date();
+        const nextWeek = new Date();
+        nextWeek.setDate(now.getDate() + 7);
 
-        // 我们只关注这四大主流平台
-        const targetSites = ['CodeForces', 'AtCoder', 'LeetCode', 'Nowcoder'];
+        // 核心：只看 CF，AtCoder，牛客
+        const targetSites = ['CodeForces', 'AtCoder', 'NowCoder'];
 
         data.forEach(contest => {
-            if(targetSites.includes(contest.site)) {
-                // 处理时区与时间戳
-                const startDate = new Date(contest.start_time);
-                const dateStr = startDate.toISOString().split('T')[0];
-                const startStr = startDate.toTimeString().substring(0, 5); // 取 19:00
+            const siteMatch = targetSites.some(s => contest.site.toLowerCase().includes(s.toLowerCase()));
+            if(!siteMatch) return;
 
-                const endDate = new Date(contest.end_time);
-                const endStr = endDate.toTimeString().substring(0, 5);
+            const startDate = new Date(contest.start_time);
+            
+            // 核心：只抓取未来 7 天内的比赛
+            if (startDate < now || startDate > nextWeek) return;
 
-                const title = `[${contest.site}] ${contest.name}`;
+            const dateStr = startDate.toISOString().split('T')[0];
+            const startStr = startDate.toTimeString().substring(0, 5); 
+            const endDate = new Date(contest.end_time);
+            const endStr = endDate.toTimeString().substring(0, 5);
+            const title = `[${contest.site}] ${contest.name}`;
 
-                // 去重验证 (如果同一天同名比赛已经有了，就不加)
-                const exists = events.some(e => e.date === dateStr && e.title === title);
-                
-                if(!exists) {
-                    events.push({
-                        id: Date.now() + Math.random(),
-                        date: dateStr,
-                        start: startStr,
-                        end: endStr,
-                        title: title,
-                        type: 'match' // 自动归类为线上赛
-                    });
-                    addedCount++;
-                }
+            // 查重：已经在日历里的比赛不显示
+            const exists = events.some(e => e.date === dateStr && e.title === title);
+            
+            if(!exists) {
+                pendingApiContests.push({
+                    date: dateStr, start: startStr, end: endStr, title: title, type: 'match'
+                });
             }
         });
 
-        if(addedCount > 0) {
-            saveEvents();
-            renderViews();
-            alert(`✅ 抓取成功！自动为你排期了 ${addedCount} 场近期比赛。`);
+        if(pendingApiContests.length > 0) {
+            // 将抓取到的比赛渲染到复选框列表里
+            apiList.innerHTML = pendingApiContests.map((c, idx) => `
+                <label class="flex items-center gap-3 p-3 theme-bg-panel border theme-border rounded-lg cursor-pointer hover-theme-bg transition-colors">
+                    <input type="checkbox" value="${idx}" class="w-5 h-5 accent-purple-600 rounded api-checkbox" checked>
+                    <div class="flex-1 overflow-hidden">
+                        <p class="font-bold text-sm truncate">${c.title}</p>
+                        <p class="text-[10px] opacity-60 font-mono mt-0.5">${c.date} | ${c.start} - ${c.end}</p>
+                    </div>
+                </label>
+            `).join('');
+            
+            apiModal.classList.add('modal-open');
+            document.getElementById('api-modal-content').classList.remove('scale-95');
         } else {
-            alert(`⚡ 抓取完毕。当前你的日历已是最新，没有漏掉任何比赛。`);
+            alert(`⚡ 抓取完毕。未来一周内没有新的 CF/AtCoder/牛客 比赛，或者你已经全添加了！`);
         }
     } catch (err) {
         console.error(err);
-        alert(`❌ 抓取失败。可能是网络波动或 API 接口限制，请稍后再试。`);
+        alert(`❌ 抓取失败。免费的 Kontests API 刚刚抽风了（跨域拦截或服务器宕机）。过会儿咱们再试。`);
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
+};
+
+document.getElementById('btn-api-confirm').onclick = () => {
+    const checkboxes = document.querySelectorAll('.api-checkbox:checked');
+    let added = 0;
+    checkboxes.forEach(cb => {
+        const contest = pendingApiContests[cb.value];
+        events.push({
+            id: Date.now() + Math.random(), // 随机ID防止冲突
+            date: contest.date,
+            start: contest.start,
+            end: contest.end,
+            title: contest.title,
+            type: 'match'
+        });
+        added++;
+    });
+    
+    if(added > 0) {
+        saveEvents();
+        renderViews();
+        alert(`✅ 成功导入 ${added} 场比赛到日历！`);
+    }
+    closeApiModal();
 };
 
 // --- 初始化 ---
