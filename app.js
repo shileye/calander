@@ -1,250 +1,298 @@
-// ================= 数据中心 =================
-// 结构: [{ id, date, time, title, category: 'comp'|'train'|'exam', priority: 0|1|2 }]
-let tasks = JSON.parse(localStorage.getItem('awakesTasks')) || [];
+/**
+ * ACM Calendar Pro - 核心逻辑引擎
+ */
 
-// 初始化运行
-init();
+// --- 1. 数据与状态管理 ---
+let events = [
+    { id: 1, date: '2026-03-29', title: '牛客周赛 #12', start: '19:00', end: '21:00', type: 'match' },
+    { id: 2, date: '2026-03-29', title: '补题: 状压DP', start: '', end: '', type: 'daily' },
+    { id: 3, date: '2026-04-05', title: '蓝桥杯省赛线下', start: '09:00', end: '13:00', type: 'offline' }
+];
 
-function init() {
-    setupEventListeners();
-    renderAll();
-}
+let curDate = new Date(2026, 2, 1);
+const todayStr = new Date().toISOString().split('T')[0];
+let currentView = 'month';
+let selectedDrawerDate = null; // 右侧抽屉当前绑定的日期
 
-function saveData() {
-    // 每次保存前，按日期和时间排序
-    tasks.sort((a, b) => {
-        if (a.date !== b.date) return a.date.localeCompare(b.date);
-        return (a.time || "24:00").localeCompare(b.time || "24:00");
-    });
-    localStorage.setItem('awakesTasks', JSON.stringify(tasks));
-    renderAll();
-}
+// --- 2. DOM 元素 ---
+const monthGrid = document.getElementById('month-grid');
+const weekGrid = document.getElementById('week-grid');
+const yearGrid = document.getElementById('year-grid');
+const dateLabel = document.getElementById('date-label');
 
-function renderAll() {
-    updateStats();
-    renderTimeline();
-    renderCalendar();
-}
+const drawer = document.getElementById('right-drawer');
+const drawerOverlay = document.getElementById('drawer-overlay');
+const drawerList = document.getElementById('drawer-list');
+const drawerInput = document.getElementById('drawer-input');
+const drawerDateLabel = document.getElementById('drawer-date');
 
-// ================= 极客命令行解析引擎 =================
-const magicInput = document.getElementById('magic-input');
+const globalModal = document.getElementById('global-modal');
+const globalInput = document.getElementById('global-input');
 
-magicInput.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter' && this.value.trim() !== '') {
-        parseCommand(this.value.trim());
-        this.value = '';
-    }
+// --- 3. 主题与导航切换 ---
+document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.onclick = (e) => {
+        const theme = e.currentTarget.dataset.set;
+        document.documentElement.setAttribute('data-theme', theme);
+        document.querySelectorAll('.theme-btn').forEach(b => {
+            b.classList.remove('active', 'opacity-100');
+            b.classList.add('opacity-50');
+        });
+        e.currentTarget.classList.add('active', 'opacity-100');
+        e.currentTarget.classList.remove('opacity-50');
+    };
 });
 
-function parseCommand(text) {
-    let dateStr = getTodayStr();
-    let timeStr = "";
-    let category = "train"; // 默认是训练计划
-    let priority = 1;       // 默认 P1
-    let title = text;
-
-    // 1. 抓取日期 (支持 4.15, 4-15, 明天)
-    const dateMatch = text.match(/(\d{1,2})[\.\-](\d{1,2})/);
-    if (dateMatch) {
-        const year = new Date().getFullYear();
-        const m = String(dateMatch[1]).padStart(2, '0');
-        const d = String(dateMatch[2]).padStart(2, '0');
-        dateStr = `${year}-${m}-${d}`;
-        title = title.replace(dateMatch[0], '');
-    } else if (text.includes('明天')) {
-        const t = new Date(); t.setDate(t.getDate() + 1);
-        dateStr = getFormattedDate(t);
-        title = title.replace('明天', '');
-    }
-
-    // 2. 抓取时间 (支持 19:00, 09:30)
-    const timeMatch = text.match(/(\d{1,2}:\d{2})/);
-    if (timeMatch) {
-        timeStr = timeMatch[1];
-        title = title.replace(timeMatch[0], '');
-    }
-
-    // 3. 抓取分类 (比赛 / 训练 / 考研)
-    if (text.includes('#比赛') || text.includes('赛')) { category = 'comp'; title = title.replace('#比赛', ''); }
-    else if (text.includes('#考研') || text.includes('复习')) { category = 'exam'; title = title.replace('#考研', ''); }
-    else if (text.includes('#训练') || text.includes('#计划')) { category = 'train'; title = title.replace('#训练', ''); title = title.replace('#计划', '');}
-
-    // 4. 抓取优先级 (!0 = P0, !1 = P1)
-    if (text.includes('!0')) { priority = 0; title = title.replace('!0', ''); }
-    else if (text.includes('!1')) { priority = 1; title = title.replace('!1', ''); }
-    else if (text.includes('!2')) { priority = 2; title = title.replace('!2', ''); }
-
-    // 5. 净化标题
-    title = title.trim().replace(/\s+/g, ' ');
-    if(!title) title = "未命名训练任务";
-
-    // 压入数据栈并保存
-    tasks.push({
-        id: Date.now().toString(),
-        date: dateStr,
-        time: timeStr,
-        title: title,
-        category: category,
-        priority: priority
-    });
-    
-    saveData();
-}
-
-// ================= 左侧导航与雷达统计 =================
-function setupEventListeners() {
-    // 视图切换
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-        item.addEventListener('click', function() {
-            // 切导航高亮
-            navItems.forEach(n => n.classList.remove('active'));
-            this.classList.add('active');
-            // 切视图展示
-            const targetId = `view-${this.dataset.target}`;
-            document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
-            document.getElementById(targetId).classList.add('active');
+document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.onclick = (e) => {
+        const view = e.currentTarget.dataset.view;
+        currentView = view;
+        
+        // 更新导航样式
+        document.querySelectorAll('.nav-btn').forEach(b => {
+            b.classList.remove('active', 'theme-bg-panel', 'opacity-100');
+            b.classList.add('opacity-70');
         });
-    });
+        e.currentTarget.classList.add('active', 'theme-bg-panel', 'opacity-100');
+        e.currentTarget.classList.remove('opacity-70');
 
-    // 日历月份切换
-    document.getElementById('cal-prev').addEventListener('click', () => changeMonth(-1));
-    document.getElementById('cal-next').addEventListener('click', () => changeMonth(1));
+        // 切换视图容器
+        document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
+        document.getElementById(`view-${view}`).classList.remove('hidden');
+        document.getElementById(`view-${view}`).classList.add('flex');
+        
+        renderViews();
+    };
+});
+
+// --- 4. 渲染引擎 ---
+function renderViews() {
+    if (currentView === 'month') renderMonth();
+    else if (currentView === 'week') renderWeek();
+    else if (currentView === 'year') renderYear();
 }
 
-function updateStats() {
-    const today = getTodayStr();
-    // 仅统计今天及以后的任务
-    const futureTasks = tasks.filter(t => t.date >= today);
-    document.getElementById('stat-comp').innerText = futureTasks.filter(t => t.category === 'comp').length;
-    document.getElementById('stat-train').innerText = futureTasks.filter(t => t.category === 'train').length;
-    document.getElementById('stat-exam').innerText = futureTasks.filter(t => t.category === 'exam').length;
+function renderMonth() {
+    monthGrid.innerHTML = '';
+    const year = curDate.getFullYear(), month = curDate.getMonth();
+    dateLabel.textContent = `${year}年 ${month + 1}月`;
+
+    let firstDay = new Date(year, month, 1).getDay();
+    firstDay = firstDay === 0 ? 7 : firstDay; 
+    const days = new Date(year, month + 1, 0).getDate();
+
+    // 填充空白
+    for (let i = 1; i < firstDay; i++) monthGrid.innerHTML += `<div class="theme-bg-panel opacity-50"></div>`;
+
+    for (let i = 1; i <= days; i++) {
+        const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+        const dayEvents = events.filter(e => e.date === dStr).sort((a,b) => (a.start||'').localeCompare(b.start||''));
+        
+        const cell = document.createElement('div');
+        cell.className = 'theme-bg-panel p-2 min-h-[100px] flex flex-col group cursor-pointer hover-theme-bg transition-colors relative';
+        
+        // 点击格子，弹出右侧抽屉
+        cell.onclick = () => openDrawer(dStr);
+
+        const isToday = dStr === todayStr;
+        let html = `
+            <div class="flex justify-between items-start mb-1.5">
+                <span class="text-sm font-bold ${isToday ? 'bg-blue-600 text-white w-6 h-6 rounded-md flex items-center justify-center' : 'opacity-60'}">${i}</span>
+                <span class="opacity-0 group-hover:opacity-100 text-xs transition-opacity font-bold text-blue-500">+</span>
+            </div>
+            <div class="flex flex-col gap-1 overflow-hidden">
+        `;
+
+        // 最多显示3个，防挤压
+        dayEvents.slice(0, 3).forEach(e => {
+            let colorCls = e.type === 'offline' ? 'border-red-500 bg-red-500/10 text-red-600' : 
+                          (e.type === 'match' ? 'border-blue-500 bg-blue-500/10 text-blue-600' : 'border-gray-400 bg-gray-500/10 opacity-80');
+            html += `<div class="text-[10px] px-1.5 py-1 rounded border-l-2 truncate font-bold ${colorCls}">${e.start ? e.start+' ' : ''}${e.title}</div>`;
+        });
+
+        if (dayEvents.length > 3) {
+            html += `<div class="text-[10px] font-bold opacity-50 mt-1">+${dayEvents.length - 3} 更多</div>`;
+        }
+
+        cell.innerHTML = html + `</div>`;
+        monthGrid.appendChild(cell);
+    }
 }
 
-// ================= 视图 1：时间轴瀑布流 =================
-function renderTimeline() {
-    const container = document.getElementById('timeline-content');
-    container.innerHTML = '';
+function renderWeek() {
+    // 简易周视图逻辑
+    weekGrid.innerHTML = '';
+    const year = curDate.getFullYear(), month = curDate.getMonth();
+    dateLabel.textContent = `${year}年 ${month + 1}月 (周视图)`;
     
-    if (tasks.length === 0) {
-        container.innerHTML = '<div style="color:var(--text-muted); padding: 40px; text-align:center;">暂无部署任务。请在上方输入框下达指令。</div>';
+    // 取当前日期的这周一到周日
+    let d = new Date(curDate);
+    let day = d.getDay();
+    let diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    let monday = new Date(d.setDate(diff));
+
+    for(let i=0; i<7; i++) {
+        let currentDay = new Date(monday);
+        currentDay.setDate(monday.getDate() + i);
+        let dStr = currentDay.toISOString().split('T')[0];
+        let dayEvents = events.filter(e => e.date === dStr);
+        
+        let html = `<div class="theme-bg-panel p-4 rounded-xl border theme-border flex gap-6 cursor-pointer hover-theme-bg" onclick="openDrawer('${dStr}')">
+            <div class="w-16 font-black text-xl opacity-60">${currentDay.getDate()}日</div>
+            <div class="flex-1 flex flex-col gap-2">`;
+        
+        if(dayEvents.length === 0) html += `<span class="opacity-30 text-sm font-bold">无排期</span>`;
+        dayEvents.forEach(e => {
+            html += `<div class="text-sm font-bold bg-black/5 px-3 py-1.5 rounded-lg w-max">${e.start ? e.start+' - ' : ''}${e.title}</div>`;
+        });
+        
+        html += `</div></div>`;
+        weekGrid.innerHTML += html;
+    }
+}
+
+function renderYear() {
+    yearGrid.innerHTML = '';
+    dateLabel.textContent = `${curDate.getFullYear()} 年度概览`;
+    const year = curDate.getFullYear();
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year, 11, 31);
+    
+    let activityMap = {};
+    events.forEach(e => activityMap[e.date] = (activityMap[e.date] || 0) + 1);
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const count = activityMap[dateStr] || 0;
+        
+        const cell = document.createElement('div');
+        cell.className = 'heatmap-cell cursor-pointer';
+        
+        // 动态计算颜色
+        if (count === 0) cell.classList.add('bg-gray-500/10');
+        else if (count === 1) cell.classList.add('bg-green-300');
+        else if (count === 2) cell.classList.add('bg-green-500');
+        else cell.classList.add('bg-green-700');
+        
+        cell.title = `${dateStr}: ${count} 项`;
+        cell.onclick = () => openDrawer(dateStr);
+        yearGrid.appendChild(cell);
+    }
+}
+
+// --- 5. 右侧抽屉 (单日 CRUD) ---
+window.openDrawer = (dateStr) => {
+    selectedDrawerDate = dateStr;
+    const parts = dateStr.split('-');
+    drawerDateLabel.textContent = `${parseInt(parts[1])}月${parseInt(parts[2])}日`;
+    
+    renderDrawerList();
+    
+    document.body.classList.add('drawer-open');
+    drawerInput.value = '';
+    setTimeout(() => drawerInput.focus(), 300);
+};
+
+function renderDrawerList() {
+    drawerList.innerHTML = '';
+    const dayEvents = events.filter(e => e.date === selectedDrawerDate).sort((a,b) => (a.start||'').localeCompare(b.start||''));
+    
+    if(dayEvents.length === 0) {
+        drawerList.innerHTML = `<div class="opacity-40 text-sm font-bold text-center mt-10">今日暂无排期</div>`;
         return;
     }
 
-    let currentMonth = '';
-    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    const catLabels = { comp: '比赛', train: '训练', exam: '考研' };
-
-    tasks.forEach(task => {
-        const d = new Date(task.date);
-        const monthStr = `${d.getFullYear()}年 ${d.getMonth() + 1}月`;
-        
-        // 分割月份线
-        if (monthStr !== currentMonth) {
-            container.innerHTML += `<div class="month-divider">${monthStr}</div>`;
-            currentMonth = monthStr;
-        }
-
-        const dayNum = String(d.getDate()).padStart(2, '0');
-        const weekStr = weekdays[d.getDay()];
-
-        container.innerHTML += `
-            <div class="task-item">
-                <div class="task-date">
-                    <div class="task-day">${dayNum}</div>
-                    <div class="task-week">${weekStr}</div>
-                </div>
-                <div class="task-core">
-                    <div class="task-title">
-                        <span class="p-dot p-${task.priority}"></span>
-                        ${task.title}
-                        <span class="tag tag-${task.category}">${catLabels[task.category]}</span>
-                    </div>
-                    <div class="task-meta">
-                        ${task.time ? `<span><i class="ri-time-line"></i> ${task.time}</span>` : ''}
-                        <span><i class="ri-calendar-line"></i> ${task.date}</span>
-                    </div>
-                </div>
-                <div class="task-actions">
-                    <button class="del-btn" onclick="deleteTask('${task.id}')" title="抹杀此任务"><i class="ri-delete-bin-line"></i></button>
+    dayEvents.forEach(e => {
+        let icon = e.type === 'offline' ? '🚗' : (e.type === 'match' ? '🏆' : '💻');
+        const item = document.createElement('div');
+        item.className = 'theme-bg-panel border theme-border p-3 rounded-lg flex justify-between items-center group shadow-sm';
+        item.innerHTML = `
+            <div class="flex items-center gap-3 overflow-hidden">
+                <span class="text-lg">${icon}</span>
+                <div class="overflow-hidden">
+                    <p class="font-bold text-sm truncate">${e.title}</p>
+                    <p class="text-xs font-mono opacity-50 mt-0.5">${e.start ? e.start : '全天'}</p>
                 </div>
             </div>
+            <button class="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 transition-opacity text-xl font-black px-2" onclick="deleteEvent(${e.id})">&times;</button>
         `;
+        drawerList.appendChild(item);
     });
 }
 
-function deleteTask(id) {
-    tasks = tasks.filter(t => t.id !== id);
-    saveData();
-}
+const closeDrawer = () => document.body.classList.remove('drawer-open');
 
-// ================= 视图 2：战略日历网格 =================
-let calDate = new Date();
+window.deleteEvent = (id) => {
+    events = events.filter(e => e.id !== id);
+    renderDrawerList(); // 刷新抽屉
+    renderViews();      // 刷新底层日历
+};
 
-function renderCalendar() {
-    const year = calDate.getFullYear();
-    const month = calDate.getMonth();
-    document.getElementById('cal-month-title').innerText = `${year}.${String(month+1).padStart(2,'0')}`;
+// 抽屉内快捷录入
+drawerInput.onkeydown = (e) => {
+    if (e.key === 'Enter' && drawerInput.value.trim()) {
+        parseAndSave(selectedDrawerDate, drawerInput.value.trim());
+        drawerInput.value = '';
+        renderDrawerList();
+        renderViews();
+    }
+};
+
+// --- 6. 全局 Modal (Ctrl+K) ---
+const openModal = () => { globalModal.classList.add('modal-open'); globalInput.value = ''; globalInput.focus(); };
+const closeModal = () => globalModal.classList.remove('modal-open');
+
+document.getElementById('btn-global-add').onclick = openModal;
+document.getElementById('btn-modal-cancel').onclick = closeModal;
+
+// NLP 解析保存核心函数
+function parseAndSave(defaultDateStr, text) {
+    let date = defaultDateStr;
+    let start = '', end = '', title = text, type = 'match';
     
-    const grid = document.getElementById('cal-grid');
-    grid.innerHTML = `
-        <div class="cal-header-cell">MON</div><div class="cal-header-cell">TUE</div><div class="cal-header-cell">WED</div>
-        <div class="cal-header-cell">THU</div><div class="cal-header-cell">FRI</div><div class="cal-header-cell">SAT</div><div class="cal-header-cell">SUN</div>
-    `;
-
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    // JS默认周日为0，我们转换为周一为起点
-    let startDayOffset = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-    const prevMonthLastDay = new Date(year, month, 0).getDate();
-    const todayStr = getTodayStr();
-
-    // 1. 渲染上个月的灰色尾巴
-    for (let i = startDayOffset - 1; i >= 0; i--) {
-        grid.innerHTML += `<div class="cal-cell other-month"><div class="cal-date-num">${prevMonthLastDay - i}</div></div>`;
+    // 解析日期 3.29
+    const dateMatch = text.match(/(\d{1,2})[\.\-](\d{1,2})/);
+    if(dateMatch) {
+        date = `${curDate.getFullYear()}-${String(dateMatch[1]).padStart(2,'0')}-${String(dateMatch[2]).padStart(2,'0')}`;
+        title = title.replace(dateMatch[0], '');
+    }
+    
+    // 解析时间 19~21 或 19:00
+    const timeMatch = text.match(/(\d{1,2})(?::\d{2})?\s*[~\-]\s*(\d{1,2})(?::\d{2})?/);
+    if(timeMatch) {
+        start = `${timeMatch[1].padStart(2,'0')}:00`; 
+        end = `${timeMatch[2].padStart(2,'0')}:00`;
+        title = title.replace(timeMatch[0], '');
     }
 
-    // 2. 渲染本月
-    for (let day = 1; day <= lastDay.getDate(); day++) {
-        const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const isToday = (dateKey === todayStr);
-        
-        let dayHtml = '';
-        tasks.filter(t => t.date === dateKey).forEach(task => {
-            dayHtml += `
-                <div class="cal-event ${task.category}">
-                    <span class="p-dot p-${task.priority}" style="width:6px;height:6px;margin-right:4px;"></span>
-                    ${task.time ? task.time + ' ' : ''}${task.title}
-                </div>
-            `;
-        });
+    if(title.includes('线下')) { type = 'offline'; title = title.replace('线下', ''); }
+    else if(title.includes('补题') || title.includes('日常')) type = 'daily';
+    
+    events.push({ id: Date.now(), date, start, end, title: title.trim(), type });
+}
 
-        grid.innerHTML += `
-            <div class="cal-cell ${isToday ? 'today' : ''}">
-                <div class="cal-date-num">${day}</div>
-                ${dayHtml}
-            </div>
-        `;
+document.getElementById('btn-modal-save').onclick = () => {
+    if(globalInput.value.trim()) {
+        parseAndSave(todayStr, globalInput.value.trim());
+        renderViews();
+        closeModal();
     }
+};
 
-    // 3. 渲染下个月补齐格子 (补齐到 42 格 = 6行 x 7列)
-    const totalRendered = startDayOffset + lastDay.getDate();
-    const remaining = 42 - totalRendered;
-    for(let i = 1; i <= remaining; i++) {
-        grid.innerHTML += `<div class="cal-cell other-month"><div class="cal-date-num">${i}</div></div>`;
-    }
-}
+globalInput.onkeydown = (e) => { if(e.key === 'Enter') document.getElementById('btn-modal-save').click(); };
 
-function changeMonth(step) {
-    calDate.setMonth(calDate.getMonth() + step);
-    renderCalendar();
-}
+// --- 7. 全局事件绑定 ---
+document.getElementById('btn-prev').onclick = () => { curDate.setMonth(curDate.getMonth()-1); renderViews(); };
+document.getElementById('btn-next').onclick = () => { curDate.setMonth(curDate.getMonth()+1); renderViews(); };
+document.getElementById('btn-today').onclick = () => { curDate = new Date(); renderViews(); };
 
-// ================= 工具函数 =================
-function getTodayStr() {
-    return getFormattedDate(new Date());
-}
+document.getElementById('btn-close-drawer').onclick = closeDrawer;
+drawerOverlay.onclick = closeDrawer;
 
-function getFormattedDate(d) {
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
+window.onkeydown = (e) => { 
+    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openModal(); }
+    if(e.key === 'Escape') { closeModal(); closeDrawer(); }
+};
+
+// --- 初始化 ---
+renderViews();

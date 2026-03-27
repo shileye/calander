@@ -1,82 +1,112 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWAKE | ACMer 指挥中心</title>
-    <!-- 引入极简图标库 -->
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
-    <!-- 引入外部 CSS -->
+    <title>ACMer Pro Calendar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-
-    <!-- 左侧指挥台 -->
-    <aside class="sidebar">
-        <div class="brand">AWAKE<span>_</span>OS</div>
-        
-        <div class="nav-section">
-            <div class="nav-title">全局视角</div>
-            <div class="nav-item active" data-target="timeline"><i class="ri-list-check-3"></i> 战役时间轴</div>
-            <div class="nav-item" data-target="calendar"><i class="ri-calendar-2-line"></i> 战略大盘</div>
+<body class="theme-bg-base theme-text-main font-sans h-screen flex overflow-hidden transition-colors duration-300">
+    
+    <!-- 左侧导航 -->
+    <aside class="w-64 theme-bg-panel border-r theme-border flex flex-col z-10 transition-colors duration-300">
+        <div class="p-6 pb-4">
+            <h1 class="text-xl font-black tracking-tight flex items-center gap-2">
+                <span class="w-3 h-3 bg-blue-500 rounded-sm"></span>ACM Pro
+            </h1>
         </div>
-
-        <div class="nav-section">
-            <div class="nav-title">数据雷达</div>
-            <div class="stats-box border-comp">
-                <div class="stats-val" id="stat-comp">0</div>
-                <div class="stats-label"><i class="ri-sword-line"></i> 场待打硬仗</div>
-            </div>
-            <div class="stats-box border-train">
-                <div class="stats-val" id="stat-train">0</div>
-                <div class="stats-label"><i class="ri-code-box-line"></i> 项修炼计划</div>
-            </div>
-            <div class="stats-box border-exam">
-                <div class="stats-val" id="stat-exam">0</div>
-                <div class="stats-label"><i class="ri-book-open-line"></i> 考研/复习节点</div>
-            </div>
-        </div>
-        
-        <div class="quote-box" id="daily-quote">
-            "键盘敲碎之日，便是金牌加身之时。"
+        <nav class="flex-1 px-4 space-y-1 mt-4">
+            <button class="nav-btn active w-full flex items-center px-4 py-2.5 rounded-lg text-sm font-bold transition-colors" data-view="month">
+                📅 月度视图
+            </button>
+            <button class="nav-btn w-full flex items-center px-4 py-2.5 rounded-lg text-sm font-bold transition-colors opacity-70 hover:opacity-100" data-view="week">
+                ⚡️ 周度排期
+            </button>
+            <button class="nav-btn w-full flex items-center px-4 py-2.5 rounded-lg text-sm font-bold transition-colors opacity-70 hover:opacity-100" data-view="year">
+                🟩 年度热力图
+            </button>
+        </nav>
+        <div class="p-5 border-t theme-border">
+            <button id="btn-global-add" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg text-sm font-bold shadow-md hover:bg-blue-700 transition-colors flex justify-between items-center">
+                <span>录入日程</span>
+                <kbd class="font-mono text-[10px] bg-blue-800 px-1.5 py-0.5 rounded">Ctrl+K</kbd>
+            </button>
         </div>
     </aside>
 
-    <!-- 右侧核心作战区 -->
-    <main class="main-content">
-        <!-- 极客终端录入区 -->
-        <header class="terminal-header">
-            <div class="terminal-wrapper">
-                <i class="ri-command-line"></i>
-                <input type="text" id="magic-input" placeholder="输入指令部署战役 (如: 4.11 19:00 蓝桥杯省赛 #比赛 !0) 回车执行..." autocomplete="off">
+    <!-- 右侧主体 -->
+    <main class="flex-1 relative flex flex-col h-full overflow-hidden">
+        
+        <!-- 顶部状态栏 -->
+        <header class="px-8 py-4 border-b theme-border flex justify-between items-center theme-bg-panel transition-colors duration-300">
+            <div class="flex items-center gap-4">
+                <button id="btn-prev" class="p-1 hover:bg-gray-500/10 rounded transition-colors">&lt;</button>
+                <span id="date-label" class="font-black text-xl w-32 text-center tabular-nums">2026 3月</span>
+                <button id="btn-next" class="p-1 hover:bg-gray-500/10 rounded transition-colors">&gt;</button>
+                <button id="btn-today" class="ml-2 text-xs border theme-border px-3 py-1.5 rounded-md font-bold hover:bg-gray-500/10 transition-colors">今天</button>
             </div>
-            <div class="terminal-hints">
-                标签支持: <span>#比赛</span> <span>#训练</span> <span>#考研</span> | 优先级: <span>!0 (最高)</span> <span>!1</span> <span>!2</span>
+            
+            <!-- 主题切换器 -->
+            <div class="flex items-center gap-2 bg-gray-500/5 p-1 rounded-lg border theme-border">
+                <button class="theme-btn w-8 h-8 rounded flex items-center justify-center text-sm transition-colors active" data-set="light" title="极简白">☀️</button>
+                <button class="theme-btn w-8 h-8 rounded flex items-center justify-center text-sm transition-colors opacity-50 hover:opacity-100" data-set="dark" title="极客黑">🌙</button>
+                <button class="theme-btn w-8 h-8 rounded flex items-center justify-center text-sm transition-colors opacity-50 hover:opacity-100" data-set="nature" title="护眼青">🌿</button>
             </div>
         </header>
+        
+        <!-- 视图容器 -->
+        <div class="flex-1 relative overflow-hidden">
+            <!-- 1. 月视图 -->
+            <div id="view-month" class="view-section h-full flex flex-col">
+                <div class="grid grid-cols-7 border-b theme-border text-center text-xs font-bold py-2 opacity-60 uppercase">
+                    <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+                </div>
+                <div id="month-grid" class="flex-1 grid grid-cols-7 auto-rows-fr overflow-y-auto theme-bg-grid gap-px"></div>
+            </div>
 
-        <!-- 视图 1：时间轴瀑布流 (默认显示) -->
-        <section id="view-timeline" class="view-container active">
-            <div class="timeline-header">
-                <h2>📅 近期部署序列</h2>
+            <!-- 2. 周视图 (预留框架) -->
+            <div id="view-week" class="view-section h-full hidden flex-col p-8 overflow-y-auto">
+                <h2 class="text-2xl font-black mb-6">本周排期</h2>
+                <div id="week-grid" class="flex flex-col gap-4"></div>
             </div>
-            <div id="timeline-content" class="timeline-content"></div>
-        </section>
 
-        <!-- 视图 2：日历沙盘 -->
-        <section id="view-calendar" class="view-container">
-            <div class="cal-header">
-                <button class="cal-nav-btn" id="cal-prev"><i class="ri-arrow-left-s-line"></i></button>
-                <h2 id="cal-month-title" class="cal-title">2024.04</h2>
-                <button class="cal-nav-btn" id="cal-next"><i class="ri-arrow-right-s-line"></i></button>
+            <!-- 3. 年视图 (热力图) -->
+            <div id="view-year" class="view-section h-full hidden flex-col p-8 overflow-y-auto items-center">
+                <h2 class="text-2xl font-black mb-2 self-start w-full max-w-4xl mx-auto">2026 训练热力图</h2>
+                <div id="year-grid" class="flex flex-wrap gap-1.5 max-w-4xl mx-auto mt-8 bg-black/5 p-6 rounded-xl border theme-border"></div>
             </div>
-            <div class="cal-grid" id="cal-grid">
-                <!-- JS 渲染日历网格 -->
-            </div>
-        </section>
+        </div>
     </main>
 
-    <!-- 引入外部 JS -->
-    <script src="script.js"></script>
+    <!-- 丝滑右侧抽屉 (单日管理) -->
+    <div id="drawer-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
+    <div id="right-drawer" class="fixed top-0 right-0 h-full w-96 theme-bg-panel shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col border-l theme-border">
+        <div class="p-6 border-b theme-border flex justify-between items-center">
+            <h3 id="drawer-date" class="text-xl font-black tabular-nums">3月29日</h3>
+            <button id="btn-close-drawer" class="text-2xl opacity-50 hover:opacity-100">&times;</button>
+        </div>
+        <div id="drawer-list" class="flex-1 overflow-y-auto p-6 space-y-3">
+            <!-- JS 动态注入单日任务 -->
+        </div>
+        <div class="p-6 border-t theme-border bg-black/5">
+            <input type="text" id="drawer-input" placeholder="输入赛事并回车 (例: 19:00 牛客)" class="w-full bg-transparent border theme-border rounded-lg px-4 py-3 outline-none focus:border-blue-500 font-bold transition-colors">
+        </div>
+    </div>
+
+    <!-- 全局快捷录入 Modal (Ctrl+K) -->
+    <div id="global-modal" class="fixed inset-0 bg-black/40 backdrop-blur-md z-50 hidden opacity-0 transition-opacity duration-200 flex items-start justify-center pt-32">
+        <div class="theme-bg-panel w-full max-w-2xl rounded-2xl shadow-2xl border theme-border overflow-hidden transform scale-95 transition-transform duration-200" id="global-modal-content">
+            <div class="p-6">
+                <input type="text" id="global-input" placeholder="输入格式: 3.29 19~21 牛客周赛" class="w-full text-xl bg-transparent outline-none font-black placeholder-gray-400">
+            </div>
+            <div class="px-6 py-4 border-t theme-border bg-black/5 flex justify-end gap-3 text-sm font-bold">
+                <button id="btn-modal-cancel" class="px-4 py-2 opacity-60 hover:opacity-100 transition-opacity">取消 (Esc)</button>
+                <button id="btn-modal-save" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">保存 (Enter)</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
 </body>
 </html>
