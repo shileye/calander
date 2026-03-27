@@ -1,19 +1,41 @@
 /**
- * ACM Calendar Pro - 终极逻辑引擎 (精细化 API 筛选 & 响应式)
+ * ACM Calendar Pro - 终极云端同步版
+ * Powered by JSONBin.io Cloud Database
  */
 
+// --- 0. 云端数据库配置 (你的专属钥匙) ---
+const BIN_ID = '69c692a5b7ec241ddcacd744';
+const API_KEY = '$2a$10$McBJb7ymZkWZlVsYWyATMuiCQtTDFKdDpM2Bt5HLmJoedKnjHjxci';
+const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+// 初始状态先从本地拿个底（防断网），等云端覆盖
 let events = JSON.parse(localStorage.getItem('acm_pro_events')) || [];
 
+// --- 核心：云同步保存引擎 (乐观更新机制) ---
 function saveEvents() {
+    // 1. 本地秒存（防丢失，保证刷新界面绝对零延迟）
     localStorage.setItem('acm_pro_events', JSON.stringify(events));
+    
+    // 2. 后台静默推送云端
+    fetch(API_URL, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': API_KEY
+        },
+        body: JSON.stringify({ events: events }) // 包装成对象
+    }).then(res => {
+        if (!res.ok) console.warn("云端同步可能遇到波动...");
+    }).catch(err => console.error("云端同步失败，已保存在本地缓存:", err));
 }
 
+// --- 状态管理 ---
 let curDate = new Date(); 
 const todayStr = new Date().toISOString().split('T')[0];
 let currentView = 'month';
 let selectedDrawerDate = null;
 let currentSelectedType = 'match'; 
-let pendingApiContests = []; // 暂存抓取到的待确认赛事
+let pendingApiContests = []; 
 
 // --- DOM 元素获取 ---
 const monthGrid = document.getElementById('month-grid');
@@ -29,6 +51,27 @@ const globalModal = document.getElementById('global-modal');
 const globalInput = document.getElementById('global-input');
 const apiModal = document.getElementById('api-modal');
 const apiList = document.getElementById('api-list');
+
+// --- 核心：初始化拉取云端数据 ---
+async function initCloudData() {
+    dateLabel.textContent = "☁️ 连接云端...";
+    try {
+        const res = await fetch(`${API_URL}/latest`, {
+            method: 'GET',
+            headers: { 'X-Master-Key': API_KEY }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            // 拿到云端数组覆盖本地
+            events = data.record.events || [];
+            localStorage.setItem('acm_pro_events', JSON.stringify(events));
+        }
+    } catch (err) {
+        console.error("无法连接云端数据库，降级使用本地缓存", err);
+    }
+    // 数据就绪，开始渲染界面
+    renderViews();
+}
 
 // --- 分类与排序 ---
 function getWeight(type) {
@@ -89,7 +132,6 @@ function bindTypeSelectors(containerId) {
 bindTypeSelectors('drawer-type-btns');
 bindTypeSelectors('modal-type-btns');
 
-// 响应式导航栏切换
 document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.onclick = (e) => {
         currentView = e.currentTarget.dataset.view;
@@ -112,7 +154,6 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     };
 });
 
-// 主题切换
 const setTheme = (theme) => {
     document.documentElement.setAttribute('data-theme', theme);
     document.querySelectorAll('.theme-btn').forEach(b => {
@@ -240,7 +281,7 @@ function renderYear() {
     }
 }
 
-// --- 抽屉与常规 Modal 逻辑 ---
+// --- 抽屉管理 ---
 window.openDrawer = (dateStr) => {
     selectedDrawerDate = dateStr;
     const parts = dateStr.split('-');
@@ -288,6 +329,7 @@ drawerInput.onkeydown = (e) => {
     }
 };
 
+// --- Modal 录入 ---
 const openModal = () => { globalModal.classList.add('modal-open'); globalInput.value = ''; globalInput.focus(); };
 const closeModal = () => globalModal.classList.remove('modal-open');
 document.querySelectorAll('.btn-global-add').forEach(btn => btn.onclick = openModal);
@@ -305,7 +347,7 @@ function parseAndSave(defaultDateStr, text) {
         start = `${timeMatch[1].padStart(2,'0')}:00`; end = `${timeMatch[2].padStart(2,'0')}:00`;
         title = title.replace(timeMatch[0], '');
     }
-    events.push({ id: Date.now(), date, start, end, title: title.trim(), type });
+    events.push({ id: Date.now() + Math.random(), date, start, end, title: title.trim(), type });
     saveEvents(); 
 }
 
@@ -398,7 +440,6 @@ document.getElementById('btn-fetch-api').onclick = async () => {
         const nextWeek = new Date();
         nextWeek.setDate(now.getDate() + 7);
 
-        // 核心：只看 CF，AtCoder，牛客
         const targetSites = ['CodeForces', 'AtCoder', 'NowCoder'];
 
         data.forEach(contest => {
@@ -406,8 +447,6 @@ document.getElementById('btn-fetch-api').onclick = async () => {
             if(!siteMatch) return;
 
             const startDate = new Date(contest.start_time);
-            
-            // 核心：只抓取未来 7 天内的比赛
             if (startDate < now || startDate > nextWeek) return;
 
             const dateStr = startDate.toISOString().split('T')[0];
@@ -416,7 +455,6 @@ document.getElementById('btn-fetch-api').onclick = async () => {
             const endStr = endDate.toTimeString().substring(0, 5);
             const title = `[${contest.site}] ${contest.name}`;
 
-            // 查重：已经在日历里的比赛不显示
             const exists = events.some(e => e.date === dateStr && e.title === title);
             
             if(!exists) {
@@ -427,7 +465,6 @@ document.getElementById('btn-fetch-api').onclick = async () => {
         });
 
         if(pendingApiContests.length > 0) {
-            // 将抓取到的比赛渲染到复选框列表里
             apiList.innerHTML = pendingApiContests.map((c, idx) => `
                 <label class="flex items-center gap-3 p-3 theme-bg-panel border theme-border rounded-lg cursor-pointer hover-theme-bg transition-colors">
                     <input type="checkbox" value="${idx}" class="w-5 h-5 accent-purple-600 rounded api-checkbox" checked>
@@ -445,36 +482,12 @@ document.getElementById('btn-fetch-api').onclick = async () => {
         }
     } catch (err) {
         console.error(err);
-        alert(`❌ 抓取失败。免费的 Kontests API 刚刚抽风了（跨域拦截或服务器宕机）。过会儿咱们再试。`);
+        alert(`❌ 抓取失败。免费的 Kontests API 刚刚抽风了。过会儿咱们再试。`);
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
 };
 
-document.getElementById('btn-api-confirm').onclick = () => {
-    const checkboxes = document.querySelectorAll('.api-checkbox:checked');
-    let added = 0;
-    checkboxes.forEach(cb => {
-        const contest = pendingApiContests[cb.value];
-        events.push({
-            id: Date.now() + Math.random(), // 随机ID防止冲突
-            date: contest.date,
-            start: contest.start,
-            end: contest.end,
-            title: contest.title,
-            type: 'match'
-        });
-        added++;
-    });
-    
-    if(added > 0) {
-        saveEvents();
-        renderViews();
-        alert(`✅ 成功导入 ${added} 场比赛到日历！`);
-    }
-    closeApiModal();
-};
-
-// --- 初始化 ---
-renderViews();
+// --- 初始化入口 ---
+initCloudData();
