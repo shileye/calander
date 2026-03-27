@@ -5,25 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ACM 赛事与训练排期系统</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
-        
-        .timeline-dot::before {
-            content: ''; position: absolute; left: -21px; top: 8px; width: 8px; height: 8px; border-radius: 50%;
-        }
-
-        /* 专门为导出 PDF / 打印写的样式 */
-        @media print {
-            aside, #modal, #today-status, .no-print { display: none !important; }
-            body, main { height: auto !important; overflow: visible !important; background: white !important; }
-            #view-report { display: flex !important; padding: 0 !important; }
-            #view-calendar { display: none !important; }
-            .print-border { border: 1px solid #e2e8f0 !important; box-shadow: none !important; }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans h-screen flex overflow-hidden">
     
@@ -55,9 +37,7 @@
         <!-- 视图 1：日历模式 -->
         <section id="view-calendar" class="h-full flex flex-col">
             <header class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-white">
-                <div id="today-status" class="text-sm font-medium text-gray-600">
-                    <!-- 动态生成今日状态 -->
-                </div>
+                <div id="today-status" class="text-sm font-medium text-gray-600"></div>
                 <div class="flex items-center gap-4">
                     <button id="prev-month" class="text-gray-400 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100 transition-colors">&lt;</button>
                     <span id="month-label" class="font-bold text-lg w-28 text-center tabular-nums">2026 3月</span>
@@ -70,9 +50,7 @@
             </div>
             
             <!-- 日历网格 -->
-            <div id="calendar-grid" class="flex-1 grid grid-cols-7 auto-rows-fr overflow-y-auto bg-gray-200 gap-px">
-                <!-- JS 动态注入 -->
-            </div>
+            <div id="calendar-grid" class="flex-1 grid grid-cols-7 auto-rows-fr overflow-y-auto bg-gray-200 gap-px"></div>
         </section>
 
         <!-- 视图 2：排期汇总模式 (用于导出 PDF) -->
@@ -83,31 +61,24 @@
                         <h2 class="text-2xl font-bold text-gray-900 tracking-tight">核心训练与赛事排期表</h2>
                         <p class="text-sm text-gray-500 mt-2">系统导出时间: <span id="export-time" class="font-mono"></span></p>
                     </div>
-                    <button onclick="window.print()" class="no-print px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-md text-sm hover:bg-gray-50 transition-colors flex items-center gap-2">
+                    <button id="btn-print" class="no-print px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-md text-sm hover:bg-gray-50 transition-colors flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                         导出排期单 (PDF)
                     </button>
                 </header>
 
                 <div class="grid grid-cols-2 gap-12">
-                    <!-- 左列：赛事 -->
                     <div>
                         <h3 class="font-bold text-gray-900 text-lg mb-6 flex items-center gap-2">
                             <span class="w-1.5 h-5 bg-blue-600 rounded-full"></span> 赛事安排
                         </h3>
-                        <div class="pl-4 border-l border-gray-200 space-y-5 relative" id="list-matches">
-                            <!-- JS 动态注入 -->
-                        </div>
+                        <div class="pl-4 border-l border-gray-200 space-y-5 relative" id="list-matches"></div>
                     </div>
-
-                    <!-- 右列：日常/补题 -->
                     <div>
                         <h3 class="font-bold text-gray-900 text-lg mb-6 flex items-center gap-2">
                             <span class="w-1.5 h-5 bg-gray-400 rounded-full"></span> 训练计划
                         </h3>
-                        <div class="pl-4 border-l border-gray-200 space-y-5 relative" id="list-dailies">
-                            <!-- JS 动态注入 -->
-                        </div>
+                        <div class="pl-4 border-l border-gray-200 space-y-5 relative" id="list-dailies"></div>
                     </div>
                 </div>
             </div>
@@ -119,9 +90,7 @@
     <div id="modal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden items-start justify-center pt-32 z-50">
         <div class="bg-white w-full max-w-xl rounded-xl shadow-2xl overflow-hidden border border-gray-200">
             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
-                <span id="modal-date-label" class="text-sm font-bold text-gray-700 bg-white px-2 py-1 border border-gray-200 rounded shadow-sm font-mono">
-                    --
-                </span>
+                <span id="modal-date-label" class="text-sm font-bold text-gray-700 bg-white px-2 py-1 border border-gray-200 rounded shadow-sm font-mono">--</span>
                 <span class="text-xs text-gray-500">直接输入时间与事项</span>
             </div>
             <div class="p-6">
@@ -134,196 +103,6 @@
         </div>
     </div>
 
-    <script>
-        // --- 数据存储 ---
-        let events = [
-            { id: 1, date: '2026-03-29', title: '牛客周赛 #12', start: '19:00', end: '21:00', type: 'match' },
-            { id: 2, date: '2026-04-12', title: '蓝桥杯省赛', start: '09:00', end: '13:00', type: 'match' },
-            { id: 3, date: '2026-03-27', title: '补题: 状压DP专题', start: '', end: '', type: 'daily' },
-            { id: 4, date: '2026-03-28', title: 'Codeforces Div2', start: '22:35', end: '00:35', type: 'match' }
-        ];
-
-        let curDate = new Date(2026, 2, 1);
-        const realTodayStr = new Date().toISOString().split('T')[0];
-        let targetDateForInput = null; // 记录当前要录入的日期
-
-        // --- DOM 获取 ---
-        const viewCal = document.getElementById('view-calendar');
-        const viewRep = document.getElementById('view-report');
-        const navCal = document.getElementById('nav-calendar');
-        const navRep = document.getElementById('nav-report');
-        const modal = document.getElementById('modal');
-        const inputStr = document.getElementById('input-text');
-        const dateLabel = document.getElementById('modal-date-label');
-
-        // --- 视图切换 ---
-        navCal.onclick = () => {
-            viewCal.classList.remove('hidden'); viewRep.classList.add('hidden');
-            navCal.className = 'w-full flex items-center px-4 py-2.5 bg-gray-100 text-gray-900 rounded-md text-sm font-medium transition-colors';
-            navRep.className = 'w-full flex items-center px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-md text-sm font-medium transition-colors';
-            renderCalendar();
-        };
-        navRep.onclick = () => {
-            viewRep.classList.remove('hidden'); viewRep.classList.add('flex'); viewCal.classList.add('hidden');
-            navRep.className = 'w-full flex items-center px-4 py-2.5 bg-gray-100 text-gray-900 rounded-md text-sm font-medium transition-colors';
-            navCal.className = 'w-full flex items-center px-4 py-2.5 text-gray-600 hover:bg-gray-50 rounded-md text-sm font-medium transition-colors';
-            renderReport();
-        };
-
-        // --- 渲染日历 ---
-        function renderCalendar() {
-            const grid = document.getElementById('calendar-grid');
-            grid.innerHTML = '';
-            const year = curDate.getFullYear(), month = curDate.getMonth();
-            document.getElementById('month-label').textContent = `${year} ${month + 1}月`;
-
-            // 顶部今日状态计算
-            const todayEvents = events.filter(e => e.date === realTodayStr);
-            document.getElementById('today-status').innerHTML = todayEvents.length > 0 
-                ? `<span class="text-gray-900 font-bold">今日任务:</span> ${todayEvents.length} 项排期`
-                : `今日暂无排期`;
-
-            let firstDay = new Date(year, month, 1).getDay();
-            firstDay = firstDay === 0 ? 7 : firstDay; 
-            const days = new Date(year, month + 1, 0).getDate();
-
-            // 补齐上个月的空格
-            for (let i = 1; i < firstDay; i++) {
-                grid.innerHTML += `<div class="bg-gray-50"></div>`;
-            }
-
-            // 渲染真实的每一天
-            for (let i = 1; i <= days; i++) {
-                const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-                const dayEvents = events.filter(e => e.date === dStr).sort((a,b) => (a.start||'').localeCompare(b.start||''));
-                
-                const cell = document.createElement('div');
-                cell.className = 'bg-white p-2 min-h-[100px] flex flex-col group cursor-pointer hover:bg-gray-50 transition-colors relative';
-                
-                // 核心恢复：点击格子打开弹窗，并自动填入该格子的日期
-                cell.onclick = (e) => {
-                    // 如果点的是已经存在的日程卡片，就不触发新建
-                    if(e.target.closest('.event-card')) return; 
-                    openModal(dStr);
-                };
-
-                const isToday = dStr === realTodayStr;
-                let html = `
-                    <div class="flex justify-between items-start mb-1.5">
-                        <span class="text-sm font-medium ${isToday ? 'bg-gray-900 text-white w-6 h-6 rounded-full flex items-center justify-center' : 'text-gray-500'}">${i}</span>
-                        <span class="text-gray-400 opacity-0 group-hover:opacity-100 text-xs transition-opacity">+</span>
-                    </div>
-                `;
-
-                dayEvents.forEach(e => {
-                    const isMatch = e.type === 'match';
-                    html += `
-                        <div class="event-card text-[11px] px-1.5 py-1 mb-1 rounded border-l-2 truncate 
-                            ${isMatch ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-gray-100 border-gray-400 text-gray-700'}">
-                            ${e.start ? '<span class="opacity-75 font-mono mr-1">'+e.start+'</span>' : ''}${e.title}
-                        </div>
-                    `;
-                });
-
-                cell.innerHTML = html;
-                grid.appendChild(cell);
-            }
-        }
-
-        // --- 渲染汇报表 (用于导出) ---
-        function renderReport() {
-            document.getElementById('export-time').textContent = new Date().toLocaleString();
-            
-            // 按日期排序
-            const sorted = [...events].sort((a,b) => a.date.localeCompare(b.date));
-            const matches = sorted.filter(e => e.type === 'match');
-            const dailies = sorted.filter(e => e.type === 'daily');
-
-            const renderList = (arr, colorClass) => arr.map(e => `
-                <div class="timeline-dot relative print-border">
-                    <style>.timeline-dot:nth-child(${arr.indexOf(e)+1})::before { background-color: ${colorClass}; }</style>
-                    <div class="bg-gray-50 border border-gray-100 p-4 rounded-md print-border">
-                        <div class="text-gray-500 font-mono text-xs mb-1">${e.date} ${e.start ? e.start+'-'+e.end : ''}</div>
-                        <div class="text-gray-900 font-semibold text-sm">${e.title}</div>
-                    </div>
-                </div>
-            `).join('');
-
-            document.getElementById('list-matches').innerHTML = renderList(matches, '#2563eb'); // blue-600
-            document.getElementById('list-dailies').innerHTML = renderList(dailies, '#9ca3af'); // gray-400
-        }
-
-        // --- 弹窗与录入逻辑 ---
-        const openModal = (dateStr = null) => { 
-            modal.classList.remove('hidden'); 
-            modal.classList.add('flex'); 
-            inputStr.value = ''; 
-            inputStr.focus();
-            
-            // 如果传入了日期（点击格子），就锁定日期。否则用当前月份的今天。
-            if (dateStr) {
-                targetDateForInput = dateStr;
-            } else {
-                targetDateForInput = realTodayStr; 
-            }
-            dateLabel.textContent = targetDateForInput;
-        };
-        
-        const closeModal = () => { 
-            modal.classList.add('hidden'); 
-            modal.classList.remove('flex'); 
-            targetDateForInput = null;
-        };
-
-        const saveEvent = () => {
-            const text = inputStr.value.trim();
-            if(!text) return;
-            
-            let date = targetDateForInput; // 默认使用锁定的日期
-            let start = '', end = '', title = text, type = 'match';
-            
-            // 如果用户硬要在输入框里手打日期，则覆盖锁定日期 (匹配 3.29 或 3-29)
-            const dateMatch = text.match(/(\d{1,2})[\.\-](\d{1,2})/);
-            if(dateMatch) {
-                date = `${curDate.getFullYear()}-${String(dateMatch[1]).padStart(2,'0')}-${String(dateMatch[2]).padStart(2,'0')}`;
-                title = title.replace(dateMatch[0], '');
-            }
-            
-            // 匹配时间 19~21
-            const timeMatch = text.match(/(\d{1,2})\s*[~\-]\s*(\d{1,2})/);
-            if(timeMatch) {
-                start = `${timeMatch[1].padStart(2,'0')}:00`; 
-                end = `${timeMatch[2].padStart(2,'0')}:00`;
-                title = title.replace(timeMatch[0], '');
-            }
-
-            // 简单判断类型
-            if(title.includes('补题') || title.includes('日常') || title.includes('刷题')) type = 'daily';
-            
-            events.push({ id: Date.now(), date, start, end, title: title.trim(), type });
-            
-            renderCalendar();
-            if(!viewRep.classList.contains('hidden')) renderReport();
-            closeModal();
-        };
-
-        // --- 事件绑定 ---
-        document.getElementById('prev-month').onclick = () => { curDate.setMonth(curDate.getMonth()-1); renderCalendar(); };
-        document.getElementById('next-month').onclick = () => { curDate.setMonth(curDate.getMonth()+1); renderCalendar(); };
-        
-        document.getElementById('btn-add-global').onclick = () => openModal(null);
-        document.getElementById('btn-cancel').onclick = closeModal;
-        document.getElementById('btn-save').onclick = saveEvent;
-        
-        inputStr.onkeydown = (e) => { if(e.key === 'Enter') saveEvent(); };
-        window.onkeydown = (e) => { 
-            if((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openModal(null); }
-            if(e.key === 'Escape') closeModal();
-        };
-        modal.onclick = (e) => { if(e.target === modal) closeModal(); };
-
-        // 初始化
-        renderCalendar();
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>

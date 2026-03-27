@@ -1,33 +1,54 @@
-/* 极简滚动条 */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+/* 自定义极简滚动条 */
+::-webkit-scrollbar { 
+    width: 6px; 
 }
-::-webkit-scrollbar-track {
-    background: transparent;
+::-webkit-scrollbar-track { 
+    background: transparent; 
 }
-::-webkit-scrollbar-thumb {
-    background: #e5e7eb;
-    border-radius: 3px;
+::-webkit-scrollbar-thumb { 
+    background: #e2e8f0; 
+    border-radius: 3px; 
 }
-::-webkit-scrollbar-thumb:hover {
-    background: #d1d5db;
-}
-
-/* 日历格子内的滚动条隐藏，保持整洁 */
-.day-cell {
-    scrollbar-width: none; /* Firefox */
-}
-.day-cell::-webkit-scrollbar {
-    display: none; /* Chrome/Safari */
+::-webkit-scrollbar-thumb:hover { 
+    background: #cbd5e1; 
 }
 
-/* 弹窗动画 */
-#input-modal:not(.hidden) > div {
-    animation: slideDown 0.15s ease-out;
+/* 时间轴的小圆点样式 */
+.timeline-dot::before {
+    content: ''; 
+    position: absolute; 
+    left: -21px; 
+    top: 8px; 
+    width: 8px; 
+    height: 8px; 
+    border-radius: 50%;
 }
 
-@keyframes slideDown {
-    from { opacity: 0; transform: translateY(-10px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+/* =========================================
+   专门为导出 PDF / 打印排版写的硬核规则
+   ========================================= */
+@media print {
+    /* 隐藏左侧导航栏、弹窗、打印按钮等不需要导出的元素 */
+    aside, #modal, #today-status, .no-print { 
+        display: none !important; 
+    }
+    /* 重置主体高度和背景，确保内容能完整拉伸打印 */
+    body, main { 
+        height: auto !important; 
+        overflow: visible !important; 
+        background: white !important; 
+    }
+    /* 强制显示排期汇总表，隐藏日历网格 */
+    #view-report { 
+        display: flex !important; 
+        padding: 0 !important; 
+    }
+    #view-calendar { 
+        display: none !important; 
+    }
+    /* 打印时去掉阴影，保持白纸黑字的清晰边框 */
+    .print-border { 
+        border: 1px solid #e2e8f0 !important; 
+        box-shadow: none !important; 
+    }
 }
