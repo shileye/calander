@@ -1,54 +1,123 @@
-/* 自定义极简滚动条 */
-::-webkit-scrollbar { 
-    width: 6px; 
-}
-::-webkit-scrollbar-track { 
-    background: transparent; 
-}
-::-webkit-scrollbar-thumb { 
-    background: #e2e8f0; 
-    border-radius: 3px; 
-}
-::-webkit-scrollbar-thumb:hover { 
-    background: #cbd5e1; 
+/* ================= 全局变量与重置 ================= */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+:root {
+    --bg-dark: #09090b;       /* 极深背景 */
+    --bg-panel: #18181b;      /* 面板背景 */
+    --bg-hover: #27272a;      /* 悬浮高亮 */
+    --text-main: #f4f4f5;     /* 主文字 */
+    --text-muted: #a1a1aa;    /* 弱化文字 */
+    --border-dim: #3f3f46;    /* 边框色 */
+    
+    /* ACMer 专属语义色 */
+    --c-comp: #f43f5e;        /* 比赛: 血色红 */
+    --c-train: #10b981;       /* 训练: AC绿 */
+    --c-exam: #8b5cf6;        /* 考研: 深邃紫 */
+    
+    /* 优先级 */
+    --p-0: #ef4444; 
+    --p-1: #f59e0b; 
+    --p-2: #71717a;
+
+    --font-mono: 'JetBrains Mono', Consolas, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-/* 时间轴的小圆点样式 */
-.timeline-dot::before {
-    content: ''; 
-    position: absolute; 
-    left: -21px; 
-    top: 8px; 
-    width: 8px; 
-    height: 8px; 
-    border-radius: 50%;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: var(--border-dim); border-radius: 4px; }
 
-/* =========================================
-   专门为导出 PDF / 打印排版写的硬核规则
-   ========================================= */
-@media print {
-    /* 隐藏左侧导航栏、弹窗、打印按钮等不需要导出的元素 */
-    aside, #modal, #today-status, .no-print { 
-        display: none !important; 
-    }
-    /* 重置主体高度和背景，确保内容能完整拉伸打印 */
-    body, main { 
-        height: auto !important; 
-        overflow: visible !important; 
-        background: white !important; 
-    }
-    /* 强制显示排期汇总表，隐藏日历网格 */
-    #view-report { 
-        display: flex !important; 
-        padding: 0 !important; 
-    }
-    #view-calendar { 
-        display: none !important; 
-    }
-    /* 打印时去掉阴影，保持白纸黑字的清晰边框 */
-    .print-border { 
-        border: 1px solid #e2e8f0 !important; 
-        box-shadow: none !important; 
-    }
-}
+body { background: var(--bg-dark); color: var(--text-main); font-family: var(--font-sans); display: flex; height: 100vh; overflow: hidden; }
+
+/* ================= 左侧栏 (Sidebar) ================= */
+.sidebar { width: 280px; background: var(--bg-panel); border-right: 1px solid var(--border-dim); padding: 24px; display: flex; flex-direction: column; }
+.brand { font-family: var(--font-mono); font-size: 1.5rem; font-weight: bold; margin-bottom: 40px; color: #fff; }
+.brand span { color: var(--c-comp); animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.nav-section { margin-bottom: 30px; }
+.nav-title { font-size: 0.75rem; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 12px; font-weight: bold; }
+.nav-item { padding: 10px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 10px; color: var(--text-muted); transition: 0.2s; margin-bottom: 4px; font-weight: 500; }
+.nav-item:hover, .nav-item.active { background: var(--bg-hover); color: var(--text-main); }
+
+/* 数据雷达卡片 */
+.stats-box { background: var(--bg-dark); border: 1px solid var(--border-dim); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+.border-comp { border-left: 3px solid var(--c-comp); }
+.border-train { border-left: 3px solid var(--c-train); }
+.border-exam { border-left: 3px solid var(--c-exam); }
+
+.stats-val { font-family: var(--font-mono); font-size: 1.8rem; font-weight: bold; color: var(--text-main); }
+.stats-label { font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.border-comp .stats-label i { color: var(--c-comp); }
+.border-train .stats-label i { color: var(--c-train); }
+.border-exam .stats-label i { color: var(--c-exam); }
+
+.quote-box { margin-top: auto; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; font-size: 0.85rem; color: var(--text-muted); font-style: italic; line-height: 1.6; border-left: 2px solid var(--c-train); }
+
+/* ================= 右侧作战区 ================= */
+.main-content { flex: 1; display: flex; flex-direction: column; position: relative; }
+
+/* 极客终端栏 */
+.terminal-header { padding: 20px 40px; border-bottom: 1px solid var(--border-dim); background: var(--bg-panel); }
+.terminal-wrapper { position: relative; display: flex; align-items: center; }
+.terminal-wrapper i { position: absolute; left: 16px; color: var(--text-muted); font-size: 1.2rem; }
+#magic-input { width: 100%; background: var(--bg-dark); border: 1px solid var(--border-dim); color: var(--text-main); font-family: var(--font-mono); font-size: 1rem; padding: 16px 20px 16px 45px; border-radius: 8px; outline: none; transition: 0.2s; }
+#magic-input:focus { border-color: var(--c-train); box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1); }
+.terminal-hints { font-size: 0.75rem; color: var(--text-muted); margin-top: 10px; display: flex; gap: 10px; align-items: center; font-family: var(--font-mono); }
+.terminal-hints span { background: var(--bg-hover); padding: 2px 6px; border-radius: 4px; }
+
+/* 视图通用 */
+.view-container { flex: 1; overflow-y: auto; padding: 30px 40px; display: none; }
+.view-container.active { display: block; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ================= 时间轴瀑布流 ================= */
+.timeline-header h2 { font-weight: 500; font-size: 1.5rem; border-bottom: 1px solid var(--border-dim); padding-bottom: 15px; margin-bottom: 20px; }
+.month-divider { font-family: var(--font-mono); color: var(--text-muted); font-size: 1rem; margin: 30px 0 15px 0; display: flex; align-items: center; gap: 10px; }
+.month-divider::after { content: ''; flex: 1; height: 1px; background: var(--border-dim); }
+
+.task-item { display: flex; gap: 20px; padding: 16px; background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; margin-bottom: 10px; transition: 0.2s; }
+.task-item:hover { border-color: var(--text-muted); transform: translateX(5px); }
+
+.task-date { width: 60px; text-align: right; flex-shrink: 0; }
+.task-day { font-size: 1.5rem; font-weight: bold; font-family: var(--font-mono); }
+.task-week { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+.task-core { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.task-title { font-size: 1.1rem; font-weight: 500; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+.task-meta { font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 15px; font-family: var(--font-mono); }
+
+.task-actions { display: flex; align-items: center; opacity: 0; transition: 0.2s; }
+.task-item:hover .task-actions { opacity: 1; }
+.del-btn { color: var(--p-0); background: transparent; border: none; font-size: 1.2rem; cursor: pointer; padding: 5px; border-radius: 4px; }
+.del-btn:hover { background: rgba(239, 68, 68, 0.1); }
+
+/* 标签体系 */
+.tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+.tag-comp { background: rgba(244, 63, 94, 0.15); color: var(--c-comp); border: 1px solid rgba(244, 63, 94, 0.3); }
+.tag-train { background: rgba(16, 185, 129, 0.15); color: var(--c-train); border: 1px solid rgba(16, 185, 129, 0.3); }
+.tag-exam { background: rgba(139, 92, 246, 0.15); color: var(--c-exam); border: 1px solid rgba(139, 92, 246, 0.3); }
+
+.p-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.p-0 { background: var(--p-0); box-shadow: 0 0 8px var(--p-0); }
+.p-1 { background: var(--p-1); }
+.p-2 { background: var(--p-2); }
+
+/* ================= 日历大盘 ================= */
+.cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.cal-title { font-size: 1.8rem; font-family: var(--font-mono); font-weight: 300; }
+.cal-nav-btn { background: var(--bg-panel); border: 1px solid var(--border-dim); color: var(--text-main); font-size: 1.2rem; cursor: pointer; padding: 5px 15px; border-radius: 6px; transition: 0.2s; }
+.cal-nav-btn:hover { background: var(--bg-hover); }
+
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border-dim); border: 1px solid var(--border-dim); border-radius: 8px; overflow: hidden; }
+.cal-cell { background: var(--bg-panel); min-height: 120px; padding: 8px; display: flex; flex-direction: column; gap: 4px; transition: 0.2s; }
+.cal-cell:hover { background: var(--bg-hover); }
+.cal-header-cell { background: var(--bg-hover); padding: 12px; text-align: center; font-size: 0.85rem; color: var(--text-muted); font-weight: bold; }
+.cal-date-num { font-size: 1rem; font-family: var(--font-mono); color: var(--text-muted); align-self: flex-end; margin-bottom: 5px; padding: 2px 6px; border-radius: 4px; }
+.cal-cell.today .cal-date-num { color: var(--bg-dark); background: var(--text-main); font-weight: bold; }
+.cal-cell.other-month { opacity: 0.3; background: var(--bg-dark); }
+
+.cal-event { font-size: 0.75rem; padding: 4px 6px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); display: flex; align-items: center; gap: 4px; }
+.cal-event.comp { background: var(--c-comp); color: #fff; font-weight: bold; }
+.cal-event.train { background: rgba(16, 185, 129, 0.2); color: var(--c-train); border-left: 2px solid var(--c-train); }
+.cal-event.exam { background: rgba(139, 92, 246, 0.2); color: var(--c-exam); border-left: 2px solid var(--c-exam); }
