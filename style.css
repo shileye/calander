@@ -1,0 +1,33 @@
+/* 极简滚动条 */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #e5e7eb;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #d1d5db;
+}
+
+/* 日历格子内的滚动条隐藏，保持整洁 */
+.day-cell {
+    scrollbar-width: none; /* Firefox */
+}
+.day-cell::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+/* 弹窗动画 */
+#input-modal:not(.hidden) > div {
+    animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
