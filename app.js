@@ -1,5 +1,5 @@
 /**
- * ACM Calendar Pro - 逻辑引擎 (完善 UI 选择与周视图翻页修复)
+ * ACM Calendar Pro - 逻辑引擎 (含 JSON 数据漫游与 ICS 手机日历同步)
  */
 
 // --- 1. 数据与状态管理 ---
@@ -9,11 +9,11 @@ function saveEvents() {
     localStorage.setItem('acm_pro_events', JSON.stringify(events));
 }
 
-let curDate = new Date(); // 当前操作的日期锚点
+let curDate = new Date(); 
 const todayStr = new Date().toISOString().split('T')[0];
 let currentView = 'month';
 let selectedDrawerDate = null;
-let currentSelectedType = 'match'; // 当前选中的任务类型，默认线上赛
+let currentSelectedType = 'match'; 
 
 // --- 2. 元素获取 ---
 const monthGrid = document.getElementById('month-grid');
@@ -83,12 +83,10 @@ function bindTypeSelectors(containerId) {
     btns.forEach(btn => {
         btn.onclick = () => {
             currentSelectedType = btn.dataset.type;
-            // 重置所有按钮
             btns.forEach(b => {
                 b.className = 'type-btn flex-1 py-1.5 rounded border-2 border-transparent opacity-50 hover:opacity-100 transition-colors';
                 if(containerId === 'modal-type-btns') b.className = 'type-btn px-3 py-1.5 rounded border-2 border-transparent opacity-50 hover:opacity-100 transition-colors';
             });
-            // 激活当前按钮 (根据类型赋予对应颜色)
             let colorCls = '';
             if(currentSelectedType === 'upsolve') colorCls = 'border-purple-500 bg-purple-500/10 text-purple-600';
             else if(currentSelectedType === 'offline') colorCls = 'border-red-500 bg-red-500/10 text-red-600';
@@ -183,17 +181,14 @@ function renderMonth() {
     }
 }
 
-// 【修复周视图】彻底重构：精准计算当前周的周一到周日
 function renderWeek() {
     weekGrid.innerHTML = '';
     
-    // 找出 curDate 所在周的周一
     let d = new Date(curDate);
     let day = d.getDay();
     let diff = d.getDate() - day + (day === 0 ? -6 : 1);
     let monday = new Date(d.setDate(diff));
     
-    // 找出所在周的周日 (用于展示标题)
     let sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     
@@ -272,7 +267,6 @@ window.openDrawer = (dateStr) => {
     renderDrawerList();
     document.body.classList.add('drawer-open');
     drawerInput.value = '';
-    // 默认重置为 match
     document.getElementById('drawer-type-btns').firstElementChild.click();
     setTimeout(() => drawerInput.focus(), 300);
 };
@@ -337,11 +331,10 @@ const closeModal = () => globalModal.classList.remove('modal-open');
 document.getElementById('btn-global-add').onclick = openModal;
 document.getElementById('btn-modal-cancel').onclick = closeModal;
 
-// --- 8. 解析与保存 (直接使用 UI 选择的分类) ---
+// --- 8. 解析与保存 ---
 function parseAndSave(defaultDateStr, text) {
     let date = defaultDateStr;
     let start = '', end = '', title = text;
-    // 直接读取当前的 UI 选择按钮
     let type = currentSelectedType; 
     
     const dateMatch = text.match(/(\d{1,2})[\.\-](\d{1,2})/);
@@ -373,7 +366,6 @@ globalInput.onkeydown = (e) => { if(e.key === 'Enter') document.getElementById('
 
 // --- 9. 全局翻页与事件绑定 ---
 document.getElementById('btn-prev').onclick = () => { 
-    // 智能翻页逻辑
     if(currentView === 'month') curDate.setMonth(curDate.getMonth() - 1); 
     else if(currentView === 'week') curDate.setDate(curDate.getDate() - 7);
     else if(currentView === 'year') curDate.setFullYear(curDate.getFullYear() - 1);
@@ -393,6 +385,79 @@ drawerOverlay.onclick = closeDrawer;
 window.onkeydown = (e) => { 
     if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openModal(); }
     if(e.key === 'Escape') { closeModal(); closeDrawer(); }
+};
+
+// --- 10. 高级核心：数据导入导出与 ICS 手机日历互通 ---
+
+// 1. 下载备份 JSON
+document.getElementById('btn-export-json').onclick = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(events));
+    const a = document.createElement('a');
+    a.href = dataStr;
+    a.download = "acm_pro_backup.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+};
+
+// 2. 上传恢复 JSON
+document.getElementById('input-import-json').onchange = (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const imported = JSON.parse(event.target.result);
+            if(Array.isArray(imported)) {
+                events = imported;
+                saveEvents();
+                renderViews();
+                alert('✅ 绝了兄弟！数据恢复成功！');
+            }
+        } catch(err) {
+            alert('❌ 识别失败，文件格式不对啊兄弟！');
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // 重置文件框
+};
+
+// 3. 导出到系统/手机日历 (.ics 格式协议)
+document.getElementById('btn-export-ics').onclick = () => {
+    if(events.length === 0) {
+        alert("当前没有排期任务可以导出哦！");
+        return;
+    }
+    
+    let icsMSG = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ACM Pro Calendar//CN\n";
+    
+    events.forEach(e => {
+        icsMSG += "BEGIN:VEVENT\n";
+        let startStr = e.date.replace(/-/g, '');
+        
+        if(e.start) {
+            // 将带时间的任务转换为 ics 的悬浮时间标准
+            startStr += "T" + e.start.replace(':', '') + "00";
+            let endStr = e.date.replace(/-/g, '') + "T" + (e.end ? e.end.replace(':', '') + "00" : e.start.replace(':', '') + "00");
+            icsMSG += `DTSTART:${startStr}\nDTEND:${endStr}\n`;
+        } else {
+            // 全天任务
+            icsMSG += `DTSTART;VALUE=DATE:${startStr}\n`;
+        }
+        
+        icsMSG += `SUMMARY:[${getTypeName(e.type)}] ${e.title}\n`;
+        icsMSG += "END:VEVENT\n";
+    });
+    
+    icsMSG += "END:VCALENDAR";
+    
+    const dataStr = "data:text/calendar;charset=utf-8," + encodeURIComponent(icsMSG);
+    const a = document.createElement('a');
+    a.href = dataStr;
+    a.download = "acm_schedule.ics";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
 };
 
 // 初始化
