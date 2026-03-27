@@ -1,20 +1,29 @@
 /**
- * ACM Calendar Pro - 核心逻辑引擎
+ * ACM Calendar Pro - 核心逻辑引擎 (支持 LocalStorage 本地存储 & 智能排序)
  */
 
-// --- 1. 数据与状态管理 ---
-let events = [
+// --- 1. 数据与状态管理 (加入 LocalStorage 防丢失) ---
+const defaultEvents = [
     { id: 1, date: '2026-03-29', title: '牛客周赛 #12', start: '19:00', end: '21:00', type: 'match' },
-    { id: 2, date: '2026-03-29', title: '补题: 状压DP', start: '', end: '', type: 'daily' },
-    { id: 3, date: '2026-04-05', title: '蓝桥杯省赛线下', start: '09:00', end: '13:00', type: 'offline' }
+    { id: 2, date: '2026-03-29', title: '补题: 状压DP', start: '', end: '', type: 'upsolve' },
+    { id: 3, date: '2026-04-05', title: '蓝桥杯省赛线下', start: '09:00', end: '13:00', type: 'offline' },
+    { id: 4, date: '2026-03-28', title: '刷题: CF Div2', start: '', end: '', type: 'practice' }
 ];
+
+// 核心修复：从浏览器的 localStorage 读取数据，刷新不再丢失
+let events = JSON.parse(localStorage.getItem('acm_pro_events')) || defaultEvents;
+
+// 每次增删改后，调用此函数保存数据到本地
+function saveEvents() {
+    localStorage.setItem('acm_pro_events', JSON.stringify(events));
+}
 
 let curDate = new Date(2026, 2, 1);
 const todayStr = new Date().toISOString().split('T')[0];
 let currentView = 'month';
-let selectedDrawerDate = null; // 右侧抽屉当前绑定的日期
+let selectedDrawerDate = null;
 
-// --- 2. DOM 元素 ---
+// --- 2. DOM 元素获取 ---
 const monthGrid = document.getElementById('month-grid');
 const weekGrid = document.getElementById('week-grid');
 const yearGrid = document.getElementById('year-grid');
@@ -29,7 +38,46 @@ const drawerDateLabel = document.getElementById('drawer-date');
 const globalModal = document.getElementById('global-modal');
 const globalInput = document.getElementById('global-input');
 
-// --- 3. 主题与导航切换 ---
+// --- 3. 智能分类与排序规则 ---
+// 优先级权重：补题 (1) > 线下赛 (2) > 线上赛 (3) > 刷题 (4)
+function getWeight(type) {
+    if (type === 'upsolve') return 1;
+    if (type === 'offline') return 2;
+    if (type === 'match') return 3;
+    return 4; // practice
+}
+
+function sortDayEvents(dayEvents) {
+    return dayEvents.sort((a, b) => {
+        const wA = getWeight(a.type);
+        const wB = getWeight(b.type);
+        if (wA !== wB) return wA - wB; // 权重不同，数字小的(高优)排前面
+        return (a.start || '24:00').localeCompare(b.start || '24:00'); // 权重相同，按时间早晚排
+    });
+}
+
+// 分类颜色与样式引擎
+function getStyle(type) {
+    switch(type) {
+        case 'upsolve': return 'border-purple-500 bg-purple-500/10 text-purple-700'; // 补题：高亮紫
+        case 'offline': return 'border-red-500 bg-red-500/10 text-red-700';       // 线下赛：警戒红
+        case 'match': return 'border-blue-500 bg-blue-500/10 text-blue-700';      // 线上赛：经典蓝
+        case 'practice': return 'border-green-500 bg-green-500/10 text-green-700';// 刷题：护眼绿
+        default: return 'border-gray-400 bg-gray-500/10 text-gray-700';
+    }
+}
+
+function getIcon(type) {
+    switch(type) {
+        case 'upsolve': return '🔥'; 
+        case 'offline': return '🚗';
+        case 'match': return '🏆';
+        case 'practice': return '💻';
+        default: return '📅';
+    }
+}
+
+// --- 4. 主题与导航切换 ---
 document.querySelectorAll('.theme-btn').forEach(btn => {
     btn.onclick = (e) => {
         const theme = e.currentTarget.dataset.set;
@@ -48,7 +96,6 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
         const view = e.currentTarget.dataset.view;
         currentView = view;
         
-        // 更新导航样式
         document.querySelectorAll('.nav-btn').forEach(b => {
             b.classList.remove('active', 'theme-bg-panel', 'opacity-100');
             b.classList.add('opacity-70');
@@ -56,7 +103,6 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
         e.currentTarget.classList.add('active', 'theme-bg-panel', 'opacity-100');
         e.currentTarget.classList.remove('opacity-70');
 
-        // 切换视图容器
         document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
         document.getElementById(`view-${view}`).classList.remove('hidden');
         document.getElementById(`view-${view}`).classList.add('flex');
@@ -65,7 +111,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     };
 });
 
-// --- 4. 渲染引擎 ---
+// --- 5. 渲染引擎 ---
 function renderViews() {
     if (currentView === 'month') renderMonth();
     else if (currentView === 'week') renderWeek();
@@ -81,17 +127,17 @@ function renderMonth() {
     firstDay = firstDay === 0 ? 7 : firstDay; 
     const days = new Date(year, month + 1, 0).getDate();
 
-    // 填充空白
     for (let i = 1; i < firstDay; i++) monthGrid.innerHTML += `<div class="theme-bg-panel opacity-50"></div>`;
 
     for (let i = 1; i <= days; i++) {
         const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-        const dayEvents = events.filter(e => e.date === dStr).sort((a,b) => (a.start||'').localeCompare(b.start||''));
+        
+        // 核心：获取当日事件并调用我们写好的智能排序函数
+        let dayEvents = events.filter(e => e.date === dStr);
+        dayEvents = sortDayEvents(dayEvents);
         
         const cell = document.createElement('div');
         cell.className = 'theme-bg-panel p-2 min-h-[100px] flex flex-col group cursor-pointer hover-theme-bg transition-colors relative';
-        
-        // 点击格子，弹出右侧抽屉
         cell.onclick = () => openDrawer(dStr);
 
         const isToday = dStr === todayStr;
@@ -103,11 +149,9 @@ function renderMonth() {
             <div class="flex flex-col gap-1 overflow-hidden">
         `;
 
-        // 最多显示3个，防挤压
         dayEvents.slice(0, 3).forEach(e => {
-            let colorCls = e.type === 'offline' ? 'border-red-500 bg-red-500/10 text-red-600' : 
-                          (e.type === 'match' ? 'border-blue-500 bg-blue-500/10 text-blue-600' : 'border-gray-400 bg-gray-500/10 opacity-80');
-            html += `<div class="text-[10px] px-1.5 py-1 rounded border-l-2 truncate font-bold ${colorCls}">${e.start ? e.start+' ' : ''}${e.title}</div>`;
+            const styleCls = getStyle(e.type);
+            html += `<div class="text-[10px] px-1.5 py-1 rounded border-l-2 truncate font-bold ${styleCls}">${e.start ? e.start+' ' : ''}${e.title}</div>`;
         });
 
         if (dayEvents.length > 3) {
@@ -120,12 +164,10 @@ function renderMonth() {
 }
 
 function renderWeek() {
-    // 简易周视图逻辑
     weekGrid.innerHTML = '';
     const year = curDate.getFullYear(), month = curDate.getMonth();
     dateLabel.textContent = `${year}年 ${month + 1}月 (周视图)`;
     
-    // 取当前日期的这周一到周日
     let d = new Date(curDate);
     let day = d.getDay();
     let diff = d.getDate() - day + (day === 0 ? -6 : 1);
@@ -135,7 +177,9 @@ function renderWeek() {
         let currentDay = new Date(monday);
         currentDay.setDate(monday.getDate() + i);
         let dStr = currentDay.toISOString().split('T')[0];
+        
         let dayEvents = events.filter(e => e.date === dStr);
+        dayEvents = sortDayEvents(dayEvents);
         
         let html = `<div class="theme-bg-panel p-4 rounded-xl border theme-border flex gap-6 cursor-pointer hover-theme-bg" onclick="openDrawer('${dStr}')">
             <div class="w-16 font-black text-xl opacity-60">${currentDay.getDate()}日</div>
@@ -143,7 +187,7 @@ function renderWeek() {
         
         if(dayEvents.length === 0) html += `<span class="opacity-30 text-sm font-bold">无排期</span>`;
         dayEvents.forEach(e => {
-            html += `<div class="text-sm font-bold bg-black/5 px-3 py-1.5 rounded-lg w-max">${e.start ? e.start+' - ' : ''}${e.title}</div>`;
+            html += `<div class="text-sm font-bold bg-black/5 px-3 py-1.5 rounded-lg w-max border-l-4 ${getStyle(e.type).split(' ')[0]}">${e.start ? e.start+' - ' : ''}${e.title}</div>`;
         });
         
         html += `</div></div>`;
@@ -168,7 +212,6 @@ function renderYear() {
         const cell = document.createElement('div');
         cell.className = 'heatmap-cell cursor-pointer';
         
-        // 动态计算颜色
         if (count === 0) cell.classList.add('bg-gray-500/10');
         else if (count === 1) cell.classList.add('bg-green-300');
         else if (count === 2) cell.classList.add('bg-green-500');
@@ -180,7 +223,7 @@ function renderYear() {
     }
 }
 
-// --- 5. 右侧抽屉 (单日 CRUD) ---
+// --- 6. 右侧抽屉 (单日 CRUD) ---
 window.openDrawer = (dateStr) => {
     selectedDrawerDate = dateStr;
     const parts = dateStr.split('-');
@@ -195,7 +238,8 @@ window.openDrawer = (dateStr) => {
 
 function renderDrawerList() {
     drawerList.innerHTML = '';
-    const dayEvents = events.filter(e => e.date === selectedDrawerDate).sort((a,b) => (a.start||'').localeCompare(b.start||''));
+    let dayEvents = events.filter(e => e.date === selectedDrawerDate);
+    dayEvents = sortDayEvents(dayEvents);
     
     if(dayEvents.length === 0) {
         drawerList.innerHTML = `<div class="opacity-40 text-sm font-bold text-center mt-10">今日暂无排期</div>`;
@@ -203,15 +247,21 @@ function renderDrawerList() {
     }
 
     dayEvents.forEach(e => {
-        let icon = e.type === 'offline' ? '🚗' : (e.type === 'match' ? '🏆' : '💻');
+        const icon = getIcon(e.type);
+        const styleCls = getStyle(e.type);
+        // 抽屉内部生成对应的 Tag 名称
+        const tagText = e.type === 'upsolve' ? '补题' : (e.type === 'offline' ? '线下赛' : (e.type === 'practice' ? '日常刷题' : '线上赛'));
+        
         const item = document.createElement('div');
-        item.className = 'theme-bg-panel border theme-border p-3 rounded-lg flex justify-between items-center group shadow-sm';
+        item.className = `theme-bg-panel border theme-border p-3 rounded-lg flex justify-between items-center group shadow-sm border-l-4 ${styleCls.split(' ')[0]}`;
         item.innerHTML = `
             <div class="flex items-center gap-3 overflow-hidden">
                 <span class="text-lg">${icon}</span>
                 <div class="overflow-hidden">
                     <p class="font-bold text-sm truncate">${e.title}</p>
-                    <p class="text-xs font-mono opacity-50 mt-0.5">${e.start ? e.start : '全天'}</p>
+                    <p class="text-[10px] font-bold opacity-60 mt-0.5 px-1.5 py-0.5 bg-black/5 rounded inline-block">
+                        ${tagText} | ${e.start ? e.start : '全天'}
+                    </p>
                 </div>
             </div>
             <button class="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 transition-opacity text-xl font-black px-2" onclick="deleteEvent(${e.id})">&times;</button>
@@ -224,11 +274,11 @@ const closeDrawer = () => document.body.classList.remove('drawer-open');
 
 window.deleteEvent = (id) => {
     events = events.filter(e => e.id !== id);
-    renderDrawerList(); // 刷新抽屉
-    renderViews();      // 刷新底层日历
+    saveEvents(); // 核心：删除也要同步到本地缓存
+    renderDrawerList(); 
+    renderViews();      
 };
 
-// 抽屉内快捷录入
 drawerInput.onkeydown = (e) => {
     if (e.key === 'Enter' && drawerInput.value.trim()) {
         parseAndSave(selectedDrawerDate, drawerInput.value.trim());
@@ -238,26 +288,24 @@ drawerInput.onkeydown = (e) => {
     }
 };
 
-// --- 6. 全局 Modal (Ctrl+K) ---
+// --- 7. 全局 Modal (Ctrl+K) ---
 const openModal = () => { globalModal.classList.add('modal-open'); globalInput.value = ''; globalInput.focus(); };
 const closeModal = () => globalModal.classList.remove('modal-open');
 
 document.getElementById('btn-global-add').onclick = openModal;
 document.getElementById('btn-modal-cancel').onclick = closeModal;
 
-// NLP 解析保存核心函数
+// --- 8. NLP 解析与智能分类核心函数 ---
 function parseAndSave(defaultDateStr, text) {
     let date = defaultDateStr;
-    let start = '', end = '', title = text, type = 'match';
+    let start = '', end = '', title = text, type = 'match'; 
     
-    // 解析日期 3.29
     const dateMatch = text.match(/(\d{1,2})[\.\-](\d{1,2})/);
     if(dateMatch) {
         date = `${curDate.getFullYear()}-${String(dateMatch[1]).padStart(2,'0')}-${String(dateMatch[2]).padStart(2,'0')}`;
         title = title.replace(dateMatch[0], '');
     }
     
-    // 解析时间 19~21 或 19:00
     const timeMatch = text.match(/(\d{1,2})(?::\d{2})?\s*[~\-]\s*(\d{1,2})(?::\d{2})?/);
     if(timeMatch) {
         start = `${timeMatch[1].padStart(2,'0')}:00`; 
@@ -265,10 +313,20 @@ function parseAndSave(defaultDateStr, text) {
         title = title.replace(timeMatch[0], '');
     }
 
-    if(title.includes('线下')) { type = 'offline'; title = title.replace('线下', ''); }
-    else if(title.includes('补题') || title.includes('日常')) type = 'daily';
+    // 智能文本分类引擎：提取输入里的关键词
+    if (title.includes('补题')) {
+        type = 'upsolve';
+    } else if (title.includes('线下')) {
+        type = 'offline';
+        title = title.replace('线下', ''); 
+    } else if (title.includes('刷题') || title.includes('日常')) {
+        type = 'practice';
+    } else {
+        type = 'match'; // 都没有，默认线上赛
+    }
     
     events.push({ id: Date.now(), date, start, end, title: title.trim(), type });
+    saveEvents(); // 核心：每次新增必定存入本地缓存
 }
 
 document.getElementById('btn-modal-save').onclick = () => {
@@ -281,7 +339,7 @@ document.getElementById('btn-modal-save').onclick = () => {
 
 globalInput.onkeydown = (e) => { if(e.key === 'Enter') document.getElementById('btn-modal-save').click(); };
 
-// --- 7. 全局事件绑定 ---
+// --- 9. 基础事件绑定 ---
 document.getElementById('btn-prev').onclick = () => { curDate.setMonth(curDate.getMonth()-1); renderViews(); };
 document.getElementById('btn-next').onclick = () => { curDate.setMonth(curDate.getMonth()+1); renderViews(); };
 document.getElementById('btn-today').onclick = () => { curDate = new Date(); renderViews(); };
