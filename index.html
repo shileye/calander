@@ -3,80 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ACM Calendar</title>
-    <!-- 引入 Tailwind 进行基础布局排版 -->
+    <title>ACM Calendar Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入我们自己的样式 -->
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans h-screen flex overflow-hidden">
+<body class="bg-gray-50 text-gray-800 font-sans h-screen flex overflow-hidden selection:bg-blue-100">
     
-    <!-- 左侧边栏 -->
-    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col z-10">
-        <div class="p-5 border-b border-gray-100">
-            <h1 class="text-lg font-bold text-gray-900 tracking-tight">ACM Calendar</h1>
+    <aside class="w-64 bg-white border-r border-gray-100 flex flex-col z-10 shadow-sm">
+        <div class="p-6">
+            <h1 class="text-xl font-bold text-gray-950 tracking-tighter flex items-center gap-2">
+                <span class="w-3 h-3 bg-gray-950 rounded-full"></span>ACM Calendar
+            </h1>
         </div>
-        <nav class="flex-1 p-3 space-y-1">
-            <a href="#" class="flex items-center gap-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-md text-sm font-medium">
+        <nav class="flex-1 px-3 space-y-1">
+            <button id="view-month" class="w-full flex items-center gap-3.5 px-4 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-sm font-semibold transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2 2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 月度日程
-            </a>
-            <a href="#" class="flex items-center gap-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md text-sm transition-colors">
-                年度概览
-            </a>
+            </button>
+            <button id="view-year" class="w-full flex items-center gap-3.5 px-4 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl text-sm font-medium transition-colors group">
+                <svg class="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                年度总览 (热力图)
+            </button>
         </nav>
-        <div class="p-4 border-t border-gray-100">
-            <button id="open-modal-btn" class="w-full flex items-center justify-between bg-gray-900 hover:bg-gray-800 text-white px-3 py-2 rounded-md transition-colors text-sm font-medium">
-                <span>添加日程</span>
-                <kbd class="text-gray-400 font-mono text-xs">Ctrl+K</kbd>
+        <div class="p-4 border-t border-gray-100 bg-gray-50/50">
+            <button id="open-modal-btn" class="w-full flex items-center justify-center gap-2.5 bg-gray-950 hover:bg-gray-800 text-white px-5 py-3 rounded-xl transition-colors text-sm font-semibold shadow-md">
+                <span>+ 添加新日程</span>
+                <kbd class="text-gray-500 font-mono text-[11px] bg-gray-800 px-1.5 py-0.5 rounded">Ctrl+K</kbd>
             </button>
         </div>
     </aside>
 
-    <!-- 右侧主体 -->
-    <main class="flex-1 flex flex-col h-full bg-white relative">
-        <!-- 顶部操作栏 -->
-        <header class="h-14 border-b border-gray-200 flex items-center justify-between px-6">
-            <div class="flex items-center gap-4">
-                <button id="prev-month" class="text-gray-400 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100 transition-colors">&lt;</button>
-                <h2 id="current-month-label" class="text-base font-semibold text-gray-800 w-24 text-center">2026年 3月</h2>
-                <button id="next-month" class="text-gray-400 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100 transition-colors">&gt;</button>
-                <button id="today-btn" class="ml-2 text-xs border border-gray-200 px-2 py-1 rounded text-gray-600 hover:bg-gray-50">今天</button>
+    <main class="flex-1 relative bg-white h-full">
+        
+        <section id="month-view" class="h-full flex flex-col">
+            <header class="h-16 border-b border-gray-100 flex items-center justify-between px-8 shadow-sm z-10">
+                <div class="flex items-center gap-2">
+                    <button id="prev-month" class="text-gray-400 hover:text-gray-950 p-2 rounded-lg hover:bg-gray-100 transition-colors">&lt;</button>
+                    <h2 id="current-month-label" class="text-lg font-bold text-gray-900 w-32 text-center tabular-nums">2026年 3月</h2>
+                    <button id="next-month" class="text-gray-400 hover:text-gray-950 p-2 rounded-lg hover:bg-gray-100 transition-colors">&gt;</button>
+                    <button id="today-btn" class="ml-3 text-xs border border-gray-200 px-3 py-1.5 rounded-lg text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-300 transition-colors">今天</button>
+                </div>
+                <div class="flex gap-5 text-xs text-gray-600 font-medium bg-gray-50 px-4 py-2 rounded-full border border-gray-100">
+                    <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded bg-red-500 shadow-inner"></span>线下赛</span>
+                    <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded bg-blue-500 shadow-inner"></span>线上赛</span>
+                    <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded bg-gray-400 shadow-inner"></span>日常/补题</span>
+                </div>
+            </header>
+            
+            <div class="grid grid-cols-7 border-b border-gray-100 text-center text-xs font-bold text-gray-500 py-3 bg-gray-50/50 uppercase tracking-wider font-mono">
+                <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div class="text-red-400">Sat</div><div class="text-red-400">Sun</div>
             </div>
-            <div class="flex gap-4 text-xs text-gray-500">
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500"></span>线下赛</span>
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-500"></span>线上赛</span>
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-gray-400"></span>日常</span>
-            </div>
-        </header>
 
-        <!-- 日历表头 -->
-        <div class="grid grid-cols-7 border-b border-gray-200 text-center text-xs font-medium text-gray-500 py-2">
-            <div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div class="text-gray-400">SAT</div><div class="text-gray-400">SUN</div>
-        </div>
+            <div id="calendar-grid" class="flex-1 grid grid-cols-7 auto-rows-fr overflow-y-auto bg-gray-100 gap-px">
+                </div>
+        </section>
 
-        <!-- 日历网格 (由 JS 动态生成) -->
-        <div id="calendar-grid" class="flex-1 grid grid-cols-7 auto-rows-fr overflow-y-auto bg-gray-100 gap-px">
-            <!-- 格子渲染在这里 -->
-        </div>
+        <section id="year-view" class="h-full flex flex-col hidden bg-gray-50 p-10 overflow-y-auto overflow-x-hidden">
+            <header class="mb-8">
+                <h2 class="text-2xl font-extrabold text-gray-950 tracking-tighter">2026 训练年度热力图</h2>
+                <p class="text-sm text-gray-600 mt-1">越绿越强，ACMer 的勋章。</p>
+            </header>
+            <div id="year-heatmap-container" class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap gap-2 justify-center">
+                </div>
+        </section>
+
     </main>
 
-    <!-- 录入弹窗 -->
-    <div id="input-modal" class="fixed inset-0 bg-gray-900/20 backdrop-blur-sm hidden items-start justify-center pt-32 z-50">
-        <div class="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-            <div class="p-4 flex items-center border-b border-gray-100">
-                <input type="text" id="smart-input" placeholder="输入如: 3.29 19~20 牛客周赛" class="w-full text-lg outline-none text-gray-800 placeholder-gray-400 font-medium">
+    <div id="input-modal" class="fixed inset-0 bg-gray-950/30 backdrop-blur-sm hidden items-start justify-center pt-32 z-50 transition-opacity duration-200 opacity-0">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-100 overflow-hidden transform scale-95 transition-transform duration-200">
+            <div class="p-6 flex items-center border-b border-gray-100 gap-4">
+                <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xl">+</div>
+                <input type="text" id="smart-input" placeholder="输入如: 3.29 19~21 牛客周赛" class="w-full text-xl outline-none text-gray-950 placeholder-gray-400 font-semibold bg-transparent">
             </div>
-            <div class="bg-gray-50 p-3 px-4 flex justify-between items-center text-xs">
-                <div id="parse-preview" class="text-gray-500 font-mono">等待输入...</div>
-                <div class="flex gap-2">
-                    <button id="close-modal-btn" class="px-3 py-1.5 text-gray-500 hover:bg-gray-200 rounded">取消 (Esc)</button>
-                    <button id="save-event-btn" class="px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded font-medium">保存 (Enter)</button>
+            <div class="bg-gray-50 p-4 px-6 flex justify-between items-center text-sm border-t border-gray-100">
+                <div id="parse-preview" class="text-gray-600 font-mono text-xs flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    等待输入智能解析...
+                </div>
+                <div class="flex gap-2.5">
+                    <button id="close-modal-btn" class="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg font-medium transition-colors text-xs">取消 (Esc)</button>
+                    <button id="save-event-btn" class="px-5 py-2.5 bg-gray-950 text-white hover:bg-gray-800 rounded-xl font-semibold transition-colors text-xs">保存日程 (Enter)</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 引入功能逻辑 -->
+    <div id="detail-modal" class="fixed inset-0 bg-gray-950/20 backdrop-blur-sm hidden items-center justify-center z-50 transition-opacity duration-200 opacity-0" @click.self="closeDetailModal">
+        <div class="bg-white/90 backdrop-blur-lg w-full max-w-lg rounded-2xl shadow-panel border border-white/50 overflow-hidden transform scale-95 transition-transform duration-200">
+            <header class="p-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 id="detail-date-label" class="text-lg font-bold text-gray-950 tabular-nums">2026年3月29日</h3>
+                <div class="flex gap-2">
+                    <button id="add-from-detail" class="text-xs text-blue-600 font-medium px-2 py-1 hover:bg-blue-50 rounded">添加</button>
+                    <button id="close-detail-btn" class="text-gray-400 hover:text-gray-900 text-lg">×</button>
+                </div>
+            </header>
+            <div id="detail-list" class="p-3 space-y-2 max-h-[400px] overflow-y-auto">
+                </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
