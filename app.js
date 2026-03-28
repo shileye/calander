@@ -1,35 +1,27 @@
 /**
- * ACM Calendar Pro - 终极云端同步版
- * Powered by JSONBin.io Cloud Database
+ * ACM Calendar Pro - 终极开源版 (BYOK 多用户动态密钥)
  */
 
-// --- 0. 云端数据库配置 (你的专属钥匙) ---
-const BIN_ID = '69c692a5b7ec241ddcacd744';
-const API_KEY = '$2a$10$McBJb7ymZkWZlVsYWyATMuiCQtTDFKdDpM2Bt5HLmJoedKnjHjxci';
-const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
-
-// 初始状态先从本地拿个底（防断网），等云端覆盖
+// --- 0. 动态云端配置引擎 ---
+let BIN_ID = localStorage.getItem('acm_bin_id') || '';
+let API_KEY = localStorage.getItem('acm_api_key') || '';
 let events = JSON.parse(localStorage.getItem('acm_pro_events')) || [];
 
-// --- 核心：云同步保存引擎 (乐观更新机制) ---
 function saveEvents() {
-    // 1. 本地秒存（防丢失，保证刷新界面绝对零延迟）
+    // 1. 本地必存（保证极速响应体验）
     localStorage.setItem('acm_pro_events', JSON.stringify(events));
     
-    // 2. 后台静默推送云端
-    fetch(API_URL, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Master-Key': API_KEY
-        },
-        body: JSON.stringify({ events: events }) // 包装成对象
-    }).then(res => {
-        if (!res.ok) console.warn("云端同步可能遇到波动...");
-    }).catch(err => console.error("云端同步失败，已保存在本地缓存:", err));
+    // 2. 如果配置了云端密钥，则后台静默推送到个人的数据库
+    if (BIN_ID && API_KEY) {
+        fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+            body: JSON.stringify({ events: events })
+        }).catch(err => console.error("云同步失败:", err));
+    }
 }
 
-// --- 状态管理 ---
+// --- 状态管理与 DOM 获取 ---
 let curDate = new Date(); 
 const todayStr = new Date().toISOString().split('T')[0];
 let currentView = 'month';
@@ -37,7 +29,6 @@ let selectedDrawerDate = null;
 let currentSelectedType = 'match'; 
 let pendingApiContests = []; 
 
-// --- DOM 元素获取 ---
 const monthGrid = document.getElementById('month-grid');
 const weekGrid = document.getElementById('week-grid');
 const yearGrid = document.getElementById('year-grid');
@@ -51,27 +42,67 @@ const globalModal = document.getElementById('global-modal');
 const globalInput = document.getElementById('global-input');
 const apiModal = document.getElementById('api-modal');
 const apiList = document.getElementById('api-list');
+const settingsModal = document.getElementById('settings-modal');
 
-// --- 核心：初始化拉取云端数据 ---
+// --- 核心：初始化拉取个人云端数据 ---
 async function initCloudData() {
-    dateLabel.textContent = "☁️ 连接云端...";
+    if (!BIN_ID || !API_KEY) {
+        dateLabel.textContent = "本地离线模式"; // 未配置则降级为本地单机版
+        renderViews();
+        return;
+    }
+    
+    dateLabel.textContent = "☁️ 同步云端...";
     try {
-        const res = await fetch(`${API_URL}/latest`, {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
             method: 'GET',
             headers: { 'X-Master-Key': API_KEY }
         });
         if (res.ok) {
             const data = await res.json();
-            // 拿到云端数组覆盖本地
             events = data.record.events || [];
             localStorage.setItem('acm_pro_events', JSON.stringify(events));
         }
     } catch (err) {
-        console.error("无法连接云端数据库，降级使用本地缓存", err);
+        console.error("拉取云端失败，使用本地缓存");
     }
-    // 数据就绪，开始渲染界面
     renderViews();
 }
+
+// --- ⚙️ 设置中心 (配置个人密钥) ---
+const openSettings = () => {
+    document.getElementById('input-bin-id').value = BIN_ID;
+    document.getElementById('input-api-key').value = API_KEY;
+    settingsModal.classList.add('modal-open');
+    document.getElementById('settings-modal-content').classList.remove('scale-95');
+};
+const closeSettings = () => {
+    settingsModal.classList.remove('modal-open');
+    document.getElementById('settings-modal-content').classList.add('scale-95');
+};
+
+document.getElementById('btn-settings-pc').onclick = openSettings;
+document.getElementById('btn-settings-mobile').onclick = openSettings;
+document.getElementById('btn-settings-cancel').onclick = closeSettings;
+
+document.getElementById('btn-settings-save').onclick = () => {
+    const newBin = document.getElementById('input-bin-id').value.trim();
+    const newKey = document.getElementById('input-api-key').value.trim();
+    
+    // 如果更换了新的数据库，先清空本地旧缓存，防止串户
+    if(newBin !== BIN_ID) {
+        events = [];
+        localStorage.removeItem('acm_pro_events');
+    }
+    
+    BIN_ID = newBin;
+    API_KEY = newKey;
+    localStorage.setItem('acm_bin_id', BIN_ID);
+    localStorage.setItem('acm_api_key', API_KEY);
+    
+    closeSettings();
+    initCloudData(); // 重新拉取新配置的数据库数据
+};
 
 // --- 分类与排序 ---
 function getWeight(type) {
@@ -140,13 +171,11 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
             b.classList.add('opacity-70');
             if(b.querySelector('span:nth-child(2)')) b.classList.add('opacity-50'); 
         });
-        
         document.querySelectorAll(`.nav-btn[data-view="${currentView}"]`).forEach(b => {
             b.classList.add('active', 'opacity-100');
             b.classList.remove('opacity-70', 'opacity-50');
             if(b.classList.contains('w-full')) b.classList.add('theme-bg-panel'); 
         });
-
         document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
         document.getElementById(`view-${currentView}`).classList.remove('hidden');
         document.getElementById(`view-${currentView}`).classList.add('flex');
@@ -329,7 +358,6 @@ drawerInput.onkeydown = (e) => {
     }
 };
 
-// --- Modal 录入 ---
 const openModal = () => { globalModal.classList.add('modal-open'); globalInput.value = ''; globalInput.focus(); };
 const closeModal = () => globalModal.classList.remove('modal-open');
 document.querySelectorAll('.btn-global-add').forEach(btn => btn.onclick = openModal);
@@ -374,7 +402,7 @@ drawerOverlay.onclick = closeDrawer;
 
 window.onkeydown = (e) => { 
     if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openModal(); }
-    if(e.key === 'Escape') { closeModal(); closeDrawer(); closeApiModal(); }
+    if(e.key === 'Escape') { closeModal(); closeDrawer(); closeApiModal(); closeSettings(); }
 };
 
 // --- 数据同步与备份 ---
@@ -416,7 +444,7 @@ document.getElementById('btn-export-ics').onclick = () => {
     a.download = "acm_schedule.ics"; a.click();
 };
 
-// --- 🔪 终极武器：智能 API 抓取与用户筛选 Modal ---
+// --- 🔪 终极武器：智能 API 抓取 ---
 const closeApiModal = () => {
     apiModal.classList.remove('modal-open');
     document.getElementById('api-modal-content').classList.add('scale-95');
@@ -456,12 +484,7 @@ document.getElementById('btn-fetch-api').onclick = async () => {
             const title = `[${contest.site}] ${contest.name}`;
 
             const exists = events.some(e => e.date === dateStr && e.title === title);
-            
-            if(!exists) {
-                pendingApiContests.push({
-                    date: dateStr, start: startStr, end: endStr, title: title, type: 'match'
-                });
-            }
+            if(!exists) pendingApiContests.push({ date: dateStr, start: startStr, end: endStr, title: title, type: 'match' });
         });
 
         if(pendingApiContests.length > 0) {
@@ -474,31 +497,34 @@ document.getElementById('btn-fetch-api').onclick = async () => {
                     </div>
                 </label>
             `).join('');
-            
             apiModal.classList.add('modal-open');
             document.getElementById('api-modal-content').classList.remove('scale-95');
         } else {
-            alert(`⚡ 抓取完毕。未来一周内没有新的 CF/AtCoder/牛客 比赛，或者你已经全添加了！`);
+            alert(`⚡ 抓取完毕。未来一周内没有新的比赛，或者你已经全添加了！`);
         }
     } catch (err) {
-        console.error(err);
-        alert(`❌ 抓取失败。免费的 Kontests API 刚刚抽风了。过会儿咱们再试。`);
+        alert(`❌ 抓取失败。免费的 API 可能正在波动，稍后再试。`);
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
 };
 
-// --- 初始化入口 ---
+document.getElementById('btn-api-confirm').onclick = () => {
+    const checkboxes = document.querySelectorAll('.api-checkbox:checked');
+    let added = 0;
+    checkboxes.forEach(cb => {
+        const contest = pendingApiContests[cb.value];
+        events.push({ id: Date.now() + Math.random(), date: contest.date, start: contest.start, end: contest.end, title: contest.title, type: 'match' });
+        added++;
+    });
+    if(added > 0) { saveEvents(); renderViews(); alert(`✅ 成功导入 ${added} 场比赛！`); }
+    closeApiModal();
+};
+
+// --- 初始化入口与 PWA 注册 ---
 initCloudData();
 
-// --- 刀：终极 App 化：注册 Service Worker (PWA) ---
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js')
-    .then((reg) => {
-      console.log('✅ 绝了！PWA 核引擎安装成功，你的 App 已就绪。', reg);
-    })
-    .catch((err) => {
-      console.error('❌ PWA 化失败。原因：你的浏览器不答应。', err);
-    });
+  navigator.serviceWorker.register('./sw.js').then((reg) => console.log('✅ PWA ready')).catch((err) => console.error('PWA fail', err));
 }

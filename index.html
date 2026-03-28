@@ -1,25 +1,25 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
 <head>
-    <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ACMer Pro Calendar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
     <style>
-        /* 针对移动端底部导航防遮挡 */
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
 <body class="theme-bg-base theme-text-main font-sans h-screen flex flex-col md:flex-row overflow-hidden transition-colors duration-300">
     
-    <!-- 左侧导航 (PC端) -->
+    <!-- 左侧导航 -->
     <aside class="hidden md:flex w-64 theme-bg-panel border-r theme-border flex-col z-10 transition-colors duration-300">
-        <div class="p-6 pb-4">
+        <div class="p-6 pb-4 flex justify-between items-center">
             <h1 class="text-xl font-black tracking-tight flex items-center gap-2">
                 <span class="w-3 h-3 bg-blue-500 rounded-sm"></span>ACM Pro
             </h1>
+            <button id="btn-settings-pc" class="text-xl opacity-50 hover:opacity-100 transition-opacity" title="云端配置">⚙️</button>
         </div>
         <nav class="flex-1 px-4 space-y-1 mt-4">
             <button class="nav-btn active w-full flex items-center px-4 py-2.5 rounded-lg text-sm font-bold transition-colors" data-view="month">📅 月度视图</button>
@@ -53,16 +53,15 @@
         <header class="px-4 md:px-8 py-3 md:py-4 border-b theme-border flex justify-between items-center theme-bg-panel transition-colors duration-300 z-20 shadow-sm md:shadow-none">
             <div class="flex items-center gap-1 md:gap-4">
                 <button id="btn-prev" class="p-1.5 md:p-1 hover:bg-gray-500/10 rounded transition-colors">&lt;</button>
-                <span id="date-label" class="font-black text-sm md:text-lg w-24 md:w-48 text-center tabular-nums tracking-tight">--</span>
+                <span id="date-label" class="font-black text-sm md:text-lg w-28 md:w-48 text-center tabular-nums tracking-tight">--</span>
                 <button id="btn-next" class="p-1.5 md:p-1 hover:bg-gray-500/10 rounded transition-colors">&gt;</button>
                 <button id="btn-today" class="ml-1 md:ml-2 text-[10px] md:text-xs border theme-border px-2 md:px-3 py-1 md:py-1.5 rounded-md font-bold hover:bg-gray-500/10 transition-colors">今天</button>
             </div>
             
             <div class="flex items-center gap-2 md:gap-4">
                 <button id="btn-fetch-api" class="text-xs md:text-sm font-bold bg-purple-500/10 text-purple-600 border border-purple-500/30 px-2.5 py-1.5 rounded-lg hover:bg-purple-500/20 transition-colors flex items-center gap-1 shadow-sm">
-                    <span>🌐</span> <span class="hidden md:inline">抓取近期比赛</span>
+                    <span>🌐</span> <span class="hidden md:inline">抓取比赛</span>
                 </button>
-                
                 <div class="flex items-center gap-1 bg-gray-500/5 p-1 rounded-lg border theme-border hidden md:flex">
                     <button class="theme-btn w-6 h-6 md:w-8 md:h-8 rounded flex items-center justify-center text-xs md:text-sm active" data-set="light">☀️</button>
                     <button class="theme-btn w-6 h-6 md:w-8 md:h-8 rounded flex items-center justify-center text-xs md:text-sm opacity-50" data-set="dark">🌙</button>
@@ -89,18 +88,18 @@
         </div>
     </main>
 
-    <!-- 底部导航 (移动端) -->
+    <!-- 底部导航 -->
     <nav class="md:hidden fixed bottom-0 w-full theme-bg-panel border-t theme-border flex justify-around items-center p-2 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] env(safe-area-inset-bottom)">
         <button class="nav-btn active flex flex-col items-center p-2 opacity-100" data-view="month"><span class="text-lg mb-1">📅</span><span class="text-[10px] font-bold">月历</span></button>
-        <button class="nav-btn flex flex-col items-center p-2 opacity-50" data-view="week"><span class="text-lg mb-1">⚡️</span><span class="text-[10px] font-bold">周排期</span></button>
+        <button class="nav-btn flex flex-col items-center p-2 opacity-50" data-view="week"><span class="text-lg mb-1">⚡️</span><span class="text-[10px] font-bold">排期</span></button>
         <button class="btn-global-add flex flex-col items-center p-2 transform -translate-y-4">
             <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl shadow-lg shadow-blue-500/40 border-4 border-white">+</div>
         </button>
-        <button class="nav-btn flex flex-col items-center p-2 opacity-50" data-view="year"><span class="text-lg mb-1">🟩</span><span class="text-[10px] font-bold">热力图</span></button>
+        <button id="btn-settings-mobile" class="flex flex-col items-center p-2 opacity-50"><span class="text-lg mb-1">⚙️</span><span class="text-[10px] font-bold">云同步</span></button>
         <button id="mobile-theme-toggle" class="flex flex-col items-center p-2 opacity-50"><span class="text-lg mb-1">🌙</span><span class="text-[10px] font-bold">主题</span></button>
     </nav>
 
-    <!-- 抽屉 (Drawer) -->
+    <!-- 各种弹窗/抽屉 -->
     <div id="drawer-overlay" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
     <div id="right-drawer" class="fixed top-0 right-0 h-full w-full md:w-96 theme-bg-panel shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col border-l theme-border">
         <div class="p-4 md:p-6 border-b theme-border flex justify-between items-center bg-black/5">
@@ -119,7 +118,6 @@
         </div>
     </div>
 
-    <!-- 全局录入 Modal -->
     <div id="global-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 hidden opacity-0 transition-opacity duration-200 flex items-start justify-center pt-20 md:pt-32 px-4">
         <div class="theme-bg-panel w-full max-w-2xl rounded-2xl shadow-2xl border theme-border overflow-hidden transform scale-95 transition-transform duration-200" id="global-modal-content">
             <div class="p-4 md:p-6 pb-2">
@@ -140,19 +138,58 @@
         </div>
     </div>
 
-    <!-- 新增：API 抓取结果筛选 Modal -->
     <div id="api-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 hidden opacity-0 transition-opacity duration-200 flex items-center justify-center p-4">
         <div class="theme-bg-panel w-full max-w-2xl rounded-2xl shadow-2xl border theme-border overflow-hidden transform scale-95 transition-transform duration-200 flex flex-col max-h-[85vh]" id="api-modal-content">
             <div class="p-4 md:p-6 border-b theme-border bg-black/5 flex justify-between items-center">
-                <h3 class="font-black text-lg flex items-center gap-2"><span>🌐</span> 未来一周赛事 (CF/At/牛客)</h3>
+                <h3 class="font-black text-lg flex items-center gap-2"><span>🌐</span> 未来一周赛事筛选</h3>
                 <button id="btn-close-api" class="text-2xl opacity-50 hover:opacity-100">&times;</button>
             </div>
-            <div id="api-list" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-3">
-                <!-- 动态注入待选赛事 -->
-            </div>
+            <div id="api-list" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-3"></div>
             <div class="p-4 md:p-6 border-t theme-border bg-black/5 flex justify-end gap-3">
                 <button id="btn-api-cancel" class="px-5 py-2.5 opacity-60 bg-gray-500/10 hover:bg-gray-500/20 rounded-lg font-bold transition-colors text-sm">取消</button>
-                <button id="btn-api-confirm" class="px-5 py-2.5 bg-purple-600 text-white rounded-lg shadow-md font-bold hover:bg-purple-700 transition-colors text-sm">导入选中的赛事</button>
+                <button id="btn-api-confirm" class="px-5 py-2.5 bg-purple-600 text-white rounded-lg shadow-md font-bold hover:bg-purple-700 transition-colors text-sm">导入选中</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 升级版设置弹窗 (带小白教程) -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 hidden opacity-0 transition-opacity duration-200 flex items-center justify-center p-4">
+        <div class="theme-bg-panel w-full max-w-lg rounded-2xl shadow-2xl border theme-border overflow-hidden transform scale-95 transition-transform duration-200 flex flex-col max-h-[90vh]" id="settings-modal-content">
+            <div class="p-5 border-b theme-border bg-black/5 flex justify-between items-center">
+                <h3 class="font-black text-xl flex items-center gap-2">⚙️ 云端多端同步配置</h3>
+                <button id="btn-settings-cancel-top" class="text-2xl opacity-50 hover:opacity-100">&times;</button>
+            </div>
+            
+            <div class="p-5 overflow-y-auto space-y-5 flex-1">
+                <!-- 密钥输入区 -->
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold opacity-70 mb-1">Bin ID (你的云端箱子编号)</label>
+                        <input type="text" id="input-bin-id" class="w-full bg-transparent border theme-border rounded-lg px-3 py-2 outline-none focus:border-blue-500 text-sm font-mono" placeholder="留空则仅保留在当前设备本地">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold opacity-70 mb-1">API Key (数据通信通行证)</label>
+                        <input type="password" id="input-api-key" class="w-full bg-transparent border theme-border rounded-lg px-3 py-2 outline-none focus:border-blue-500 text-sm font-mono" placeholder="$2a$10$...">
+                    </div>
+                </div>
+
+                <!-- 傻瓜式教程区 -->
+                <div class="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl text-sm text-blue-800 dark:text-blue-300">
+                    <h4 class="font-black mb-2 flex items-center gap-1">💡 如何开启云同步？(只需1分钟)</h4>
+                    <ol class="list-decimal pl-5 space-y-1.5 opacity-90 text-xs leading-relaxed">
+                        <li>访问 <a href="https://jsonbin.io" target="_blank" class="underline font-bold text-blue-600 dark:text-blue-400">jsonbin.io</a>，点击右上角用 GitHub 免费注册并登录。</li>
+                        <li>新建一个数据箱 (Create Bin)，在代码框里输入 <code class="bg-black/10 px-1 rounded font-mono">{"events":[]}</code>，点击右上角的 <b>Save</b>。</li>
+                        <li>保存后，网页地址栏最后的一串字符就是 <b>Bin ID</b>，复制填入上方。</li>
+                        <li>点击网页左侧菜单的 <b>API Keys</b>，复制那串极长的 <b>Master Key</b>，填入上方的 API Key。</li>
+                        <li>点击底部保存。之后你在手机或电脑上填入相同的两串代码，排期就会无缝实时同步！</li>
+                    </ol>
+                    <p class="mt-3 text-[10px] font-bold opacity-60 text-center">🔐 数据直连你自己的专属数据库，绝对隐私安全。</p>
+                </div>
+            </div>
+
+            <div class="p-4 border-t theme-border bg-black/5 flex justify-end gap-3">
+                <button id="btn-settings-cancel" class="px-4 py-2 opacity-60 bg-gray-500/10 hover:bg-gray-500/20 rounded-lg font-bold transition-colors text-sm">暂不配置</button>
+                <button id="btn-settings-save" class="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md font-bold hover:bg-blue-700 transition-colors text-sm">保存并连接云端</button>
             </div>
         </div>
     </div>
