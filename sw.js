@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acm-pro-v3'; // 核心：版本号升级到 v3，强制更新！
+const CACHE_NAME = 'acm-pro-v4'; // 核心：版本号升级到 v3，强制更新！
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
