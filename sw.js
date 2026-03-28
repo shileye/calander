@@ -1,13 +1,12 @@
-const CACHE_NAME = 'acm-pro-v2'; 
+const CACHE_NAME = 'acm-pro-v3'; // 核心：版本号升级到 v3，强制更新！
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
   './app.js',
-  './icon.jpg',
+  './icon.png',
   './manifest.json'
 ];
-// 下面的代码不用动...
 
 // 1. Install：缓存静态资源，保证脱机运行
 self.addEventListener('install', (e) => {
@@ -18,7 +17,7 @@ self.addEventListener('install', (e) => {
   self.skipWaiting(); 
 });
 
-// 2. Activate：清理旧缓存
+// 2. Activate：清理旧缓存 (把 v2 的垃圾清掉)
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => Promise.all(
@@ -31,14 +30,14 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// 3. Fetch：拦截网络请求。对 Kontests API 和 JSONBin API 总是发网络请求，对静态文件用缓存
+// 3. Fetch：拦截网络请求
 self.addEventListener('fetch', (e) => {
   if (e.request.url.includes('api.jsonbin.io') || e.request.url.includes('kontests.net')) {
-    // 接口数据，不用 Service Worker 的缓存 (在 JS 里处理失败以降级到本地 localStorage)
+    // 接口数据，不用 Service Worker 的缓存
     return;
   }
   
-  // 对于本站的 HTML/CSS/JS/PNG，采用缓存优先，同时在后台更新网络
+  // 对于本站的 HTML/CSS/JS/PNG，采用缓存优先
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
       return cachedResponse || fetch(e.request);
