@@ -84,7 +84,7 @@ const closeSettings = () => {
 document.getElementById('btn-settings-pc').onclick = openSettings;
 document.getElementById('btn-settings-mobile').onclick = openSettings;
 document.getElementById('btn-settings-cancel').onclick = closeSettings;
-
+document.getElementById('btn-settings-cancel-top').onclick = closeSettings;
 document.getElementById('btn-settings-save').onclick = () => {
     const newBin = document.getElementById('input-bin-id').value.trim();
     const newKey = document.getElementById('input-api-key').value.trim();
