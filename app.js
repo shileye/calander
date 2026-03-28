@@ -491,3 +491,14 @@ document.getElementById('btn-fetch-api').onclick = async () => {
 
 // --- 初始化入口 ---
 initCloudData();
+
+// --- 刀：终极 App 化：注册 Service Worker (PWA) ---
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then((reg) => {
+      console.log('✅ 绝了！PWA 核引擎安装成功，你的 App 已就绪。', reg);
+    })
+    .catch((err) => {
+      console.error('❌ PWA 化失败。原因：你的浏览器不答应。', err);
+    });
+}
